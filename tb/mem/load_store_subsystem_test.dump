@@ -1,0 +1,131 @@
+RV32I Level 3 load/store subsystem test
+=======================================
+
+Memory image: tb/mem/load_store_subsystem_test.mem
+Each line is one 32-bit instruction, beginning at byte address 0.
+
+Coverage:
+  - LB/LBU from all four byte lanes, including sign and zero extension.
+  - LH/LHU from both aligned halfword lanes, including sign and zero extension.
+  - SB to all four byte lanes; immediate loads check each stored byte.
+  - SH to low/high halfword lanes; immediate signed/unsigned loads check data.
+  - LW/SW at multiple word addresses, checking lane preservation and address decode.
+  - Every load is immediately followed by an ADDI that consumes its result. This
+    exercises the synchronous memory response and load-use stall/forwarding path.
+
+The program branches to FAIL on any mismatch. At completion:
+  dmem[128] = 0x00000055 : all checks passed
+  dmem[128] = 0x000000EE : a check failed
+The signature is stored at byte address 0x200.
+
+Seed word at byte address 0x100:
+  0x80FF8001, bytes at increasing addresses: 01, 80, FF, 80.
+SB test word at byte address 0x104 should finish as 0x44332211.
+SH test word at byte address 0x108 should finish as 0x04560123.
+Additional SW/LW test word at byte address 0x110 should be 0x89ABC123.
+
+Address    Machine code  Instruction / purpose
+--------   ------------  ---------------------
+00000000   10000093      addi x1,x0,256             ; data RAM base (0x100)
+00000004   20000313      addi x6,x0,512             ; result signature address (0x200)
+00000008   80ff8137      lui x2,0x80ff8             ; upper bits of seed pattern
+0000000c   00110113      addi x2,x2,1               ; x2 = 0x80FF8001
+00000010   0020a023      sw x2,0(x1)                ; seed bytes 01,80,FF,80
+00000014   00108183      lb x3,1(x1)                ; signed byte lane 1 = -128
+00000018   08018213      addi x4,x3,128             ; immediate load consumer; expect zero
+0000001c   16021a63      bne x4,x0,fail             ; check LB sign extension
+00000020   0010c183      lbu x3,1(x1)               ; unsigned byte lane 1 = 128
+00000024   f8018213      addi x4,x3,-128            ; immediate load consumer
+00000028   16021463      bne x4,x0,fail             ; check LBU zero extension
+0000002c   00208183      lb x3,2(x1)                ; signed byte lane 2 = -1
+00000030   00118213      addi x4,x3,1               ; immediate load consumer
+00000034   14021e63      bne x4,x0,fail             ; check LB sign extension of FF
+00000038   0020c183      lbu x3,2(x1)               ; unsigned byte lane 2 = 255
+0000003c   f0118213      addi x4,x3,-255            ; immediate load consumer
+00000040   14021863      bne x4,x0,fail             ; check LBU zero extension
+00000044   00308183      lb x3,3(x1)                ; signed byte lane 3 = -128
+00000048   08018213      addi x4,x3,128             ; immediate load consumer
+0000004c   14021263      bne x4,x0,fail             ; check LB lane 3
+00000050   0030c183      lbu x3,3(x1)               ; unsigned byte lane 3 = 128
+00000054   f8018213      addi x4,x3,-128            ; immediate load consumer
+00000058   12021c63      bne x4,x0,fail             ; check LBU lane 3
+0000005c   00009183      lh x3,0(x1)                ; signed low half = 0xFFFF8001
+00000060   00018213      addi x4,x3,0               ; immediate load consumer
+00000064   ffff82b7      lui x5,0xffff8             ; expected value high bits
+00000068   00128293      addi x5,x5,1               ; x5 = 0xFFFF8001
+0000006c   12521263      bne x4,x5,fail             ; check LH sign extension
+00000070   0000d183      lhu x3,0(x1)               ; unsigned low half = 0x8001
+00000074   00018213      addi x4,x3,0               ; immediate load consumer
+00000078   000082b7      lui x5,8                  ; expected value = 0x8000
+0000007c   00128293      addi x5,x5,1               ; x5 = 0x00008001
+00000080   10521863      bne x4,x5,fail             ; check LHU zero extension
+00000084   00209183      lh x3,2(x1)                ; signed high half = 0xFFFF80FF
+00000088   00018213      addi x4,x3,0               ; immediate load consumer
+0000008c   ffff82b7      lui x5,0xffff8
+00000090   0ff28293      addi x5,x5,255             ; x5 = 0xFFFF80FF
+00000094   0e521e63      bne x4,x5,fail             ; check signed upper half load
+00000098   0020d183      lhu x3,2(x1)               ; unsigned high half = 0x80FF
+0000009c   00018213      addi x4,x3,0               ; immediate load consumer
+000000a0   000082b7      lui x5,8
+000000a4   0ff28293      addi x5,x5,255             ; x5 = 0x000080FF
+000000a8   0e521463      bne x4,x5,fail             ; check LHU upper half
+000000ac   0000a223      sw x0,4(x1)                ; clear SB test word at 0x104
+000000b0   01100113      addi x2,x0,0x11
+000000b4   00208223      sb x2,4(x1)                ; store byte lane 0
+000000b8   00408183      lb x3,4(x1)                ; read back lane 0
+000000bc   fef18213      addi x4,x3,-17             ; immediate load consumer
+000000c0   0c021863      bne x4,x0,fail             ; verify lane 0
+000000c4   02200113      addi x2,x0,0x22
+000000c8   002082a3      sb x2,5(x1)                ; store byte lane 1
+000000cc   00508183      lb x3,5(x1)                ; read back lane 1
+000000d0   fde18213      addi x4,x3,-34             ; immediate load consumer
+000000d4   0a021e63      bne x4,x0,fail             ; verify lane 1
+000000d8   03300113      addi x2,x0,0x33
+000000dc   00208323      sb x2,6(x1)                ; store byte lane 2
+000000e0   00608183      lb x3,6(x1)                ; read back lane 2
+000000e4   fcd18213      addi x4,x3,-51             ; immediate load consumer
+000000e8   0a021463      bne x4,x0,fail             ; verify lane 2
+000000ec   04400113      addi x2,x0,0x44
+000000f0   002083a3      sb x2,7(x1)                ; store byte lane 3
+000000f4   00708183      lb x3,7(x1)                ; read back lane 3
+000000f8   fbc18213      addi x4,x3,-68             ; immediate load consumer
+000000fc   08021a63      bne x4,x0,fail             ; verify lane 3
+00000100   0040a183      lw x3,4(x1)                ; read complete SB word
+00000104   00018213      addi x4,x3,0               ; immediate load consumer
+00000108   443322b7      lui x5,0x44332
+0000010c   21128293      addi x5,x5,0x211           ; x5 = 0x44332211
+00000110   08521063      bne x4,x5,fail             ; verify all byte lanes/strobes
+00000114   0000a423      sw x0,8(x1)                ; clear SH test word at 0x108
+00000118   12300113      addi x2,x0,0x123
+0000011c   00209423      sh x2,8(x1)                ; write lower halfword lanes
+00000120   00809183      lh x3,8(x1)                ; read signed lower halfword
+00000124   edd18213      addi x4,x3,-0x123          ; immediate load consumer
+00000128   06021463      bne x4,x0,fail             ; verify lower SH/LH
+0000012c   0080d183      lhu x3,8(x1)
+00000130   edd18213      addi x4,x3,-0x123          ; immediate load consumer
+00000134   04021e63      bne x4,x0,fail             ; verify lower SH/LHU
+00000138   45600113      addi x2,x0,0x456
+0000013c   00209523      sh x2,10(x1)               ; write upper halfword lanes
+00000140   00a09183      lh x3,10(x1)
+00000144   baa18213      addi x4,x3,-0x456          ; immediate load consumer
+00000148   04021463      bne x4,x0,fail             ; verify upper SH/LH
+0000014c   00a0d183      lhu x3,10(x1)
+00000150   baa18213      addi x4,x3,-0x456          ; immediate load consumer
+00000154   02021e63      bne x4,x0,fail             ; verify upper SH/LHU
+00000158   0080a183      lw x3,8(x1)                ; read complete SH word
+0000015c   00018213      addi x4,x3,0               ; immediate load consumer
+00000160   045602b7      lui x5,0x4560
+00000164   12328293      addi x5,x5,0x123           ; x5 = 0x04560123
+00000168   02521463      bne x4,x5,fail             ; verify both halfword lanes
+0000016c   89abc137      lui x2,0x89abc
+00000170   12310113      addi x2,x2,0x123           ; x2 = 0x89ABC123
+00000174   0020a823      sw x2,16(x1)               ; store at byte address 0x110
+00000178   0100a183      lw x3,16(x1)               ; load from a different word address
+0000017c   00018213      addi x4,x3,0               ; immediate load consumer
+00000180   00221863      bne x4,x2,fail             ; verify address and sync response
+00000184   05500113      addi x2,x0,0x55             ; PASS signature
+00000188   00232023      sw x2,0(x6)                ; dmem[128] = PASS
+0000018c   00c0006f      jal x0,done                ; skip failure handler
+00000190   0ee00113      addi x2,x0,0xEE             ; FAIL signature
+00000194   00232023      sw x2,0(x6)                ; dmem[128] = FAIL
+00000198   0000006f      jal x0,done                ; park forever

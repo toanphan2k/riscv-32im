@@ -173,6 +173,7 @@ module id_decoder_ctrl (
                 ctrl.alu_src_a_sel  = ALU_SRC_A_PC;
                 ctrl.alu_src_b_sel  = ALU_SRC_B_IMM;
                 ctrl.alu_opcode     = ALU_ADD;
+                ctrl.wb_src_sel     = WB_SRC_PC_4;
             end
 
             OP_JALR: begin
@@ -183,6 +184,7 @@ module id_decoder_ctrl (
                 ctrl.alu_src_a_sel  = ALU_SRC_A_PC;
                 ctrl.alu_src_b_sel  = ALU_SRC_B_IMM;
                 ctrl.alu_opcode     = ALU_ADD;
+                ctrl.wb_src_sel     = WB_SRC_PC_4;
             end
 
             OP_FENCE: begin

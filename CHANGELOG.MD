@@ -1,6 +1,17 @@
 # Changelog
 
-## [0.3.3] - 2026-10-24
+## [0.3.5] - 2026-10-24
+
+### Added
+- Added instruction memory for testing rv32im_core and top
+
+### Fixed
+- Fixed missing ctrl.wb_src_sel = WB_SRC_PC_4 in Decoder Control, OP_JAL and OP_JALR
+
+### Changed
+- Update tb_rv32im_core.sv to use mem
+
+## [0.3.4] - 2026-10-24
 
 ### Added
 - Added testbench for rv32im_core.sv

@@ -1,0 +1,46 @@
+Pipeline hazard core test program
+=================================
+
+Memory file: tb/pipeline_harzard_test.mem
+Each line is one 32-bit instruction word. Instruction addresses are byte
+addresses, starting at 0x00000000. The testbench initializes unused instruction
+memory entries to NOP before loading this file.
+
+Program flow:
+  - Build arithmetic values and exercise forwarding.
+  - Store x3 to data-memory byte address 0x100, then load it back.
+  - Immediately consume the load result to exercise the load-use stall.
+  - Take a BEQ immediately after producing one of its operands, testing
+    forwarding into branch comparison.
+  - Flush a wrong-path store and verify its destination word remains unchanged.
+  - Check the expected result words in dmem[64..67], then loop forever.
+
+Expected signatures:
+  dmem[64] = 0x0000001E (x3 = 30)
+  dmem[65] = 0x00000032 (x7 = 50)
+  dmem[66] = 0x00000007 (branch target value)
+  dmem[67] = 0x00000014 (x4 = 20)
+  dmem[68] = 0x00000000 (wrong-path store was flushed)
+
+Address    Machine code  Instruction / purpose
+--------   ------------  ---------------------
+00000000   00a00093      addi x1,x0,10             ; x1 = 10
+00000004   01400113      addi x2,x0,20             ; x2 = 20
+00000008   002081b3      add x3,x1,x2              ; x3 = 30; forwarding from x1/x2
+0000000c   40118233      sub x4,x3,x1              ; x4 = 20; dependent on preceding ADD
+00000010   10000293      addi x5,x0,256            ; data-memory base = byte address 0x100
+00000014   0032a023      sw x3,0(x5)               ; dmem[64] = 30
+00000018   0002a303      lw x6,0(x5)               ; x6 = dmem[64]
+0000001c   002303b3      add x7,x6,x2              ; x7 = 50; immediately consumes LW result
+00000020   06300493      addi x9,x0,99             ; value used only by wrong-path store
+00000024   01e00413      addi x8,x0,30             ; branch operand; x8 = 30
+00000028   00830463      beq x6,x8,+8              ; taken; forwards x8 and skips 0x2C
+0000002c   0092a823      sw x9,16(x5)              ; wrong path; must be flushed (dmem[68])
+00000030   00700493      addi x9,x0,7              ; branch target; wrong path must not clobber x9
+00000034   0072a223      sw x7,4(x5)               ; dmem[65] = 50
+00000038   0092a423      sw x9,8(x5)               ; dmem[66] = 7
+0000003c   0042a623      sw x4,12(x5)              ; dmem[67] = 20
+00000040   0000006f      jal x0,0                  ; park in an infinite loop
+
+Instruction encodings use little-endian RISC-V field layout as displayed by
+the 32-bit word value; do not byte-swap individual lines for $readmemh.

@@ -1,0 +1,72 @@
+RV32I Level 4 control-flow and corner-case test
+================================================
+
+Memory image: tb/mem/control_flow_corner_cases_test.mem
+Each line is one 32-bit instruction, starting at byte address 0.
+
+Coverage:
+  - Taken and not-taken conditional branches.
+  - A branch immediately dependent on a just-produced register value.
+  - JAL and JALR redirects, link-address values, and wrong-path suppression.
+  - JALR bit-zero clearing: x9 contains odd address 0x59; the core must jump
+    to 0x58 after clearing bit 0.
+  - x0 remains zero after an instruction attempts to write it.
+  - Interactions between branches/jumps and dependent instructions.
+  - Reset-entry assumption: the external testbench must assert reset before
+    releasing the core to begin fetching at PC=0.
+
+Result signature:
+  dmem[64] = 0x00000055 : checks passed
+  dmem[64] = 0x000000EE : a check failed
+The signature is written to byte address 0x100. The program then parks.
+
+Reset and alignment scope:
+  Reset is an input to the core, not an instruction; this ROM alone cannot
+  pulse reset or verify asynchronous reset assertion. It checks operation from
+  the reset entry state (PC=0, x0=0), assuming the testbench asserts reset.
+  The JALR case verifies clearing address bit 0 for an odd base address that
+  resolves to an aligned instruction address. The core has no trap/exception
+  path, so this image does not test misaligned-instruction trap handling.
+
+Address    Machine code  Instruction / purpose
+--------   ------------  ---------------------
+00000000   00500093      addi x1,x0,5                ; x1 = 5
+00000004   00500113      addi x2,x0,5                ; x2 = 5
+00000008   00700193      addi x3,x0,7                ; expected value preserved across redirects
+0000000c   00208463      beq x1,x2,+8                ; taken; skip 0x10
+00000010   06300193      addi x3,x0,99               ; wrong path; must be flushed
+00000014   00700213      addi x4,x0,7                ; branch target
+00000018   06419663      bne x3,x4,fail              ; confirms BEQ redirect flushed wrong path
+0000001c   06209463      bne x1,x2,fail              ; not taken because x1 == x2
+00000020   00500313      addi x6,x0,5                ; value produced immediately before branch
+00000024   00130463      beq x6,x1,+8                ; taken; branch depends on preceding ADDI
+00000028   06300193      addi x3,x0,99               ; wrong path; must be flushed
+0000002c   00700213      addi x4,x0,7                ; branch target
+00000030   04419a63      bne x3,x4,fail              ; confirms dependent branch redirect
+00000034   0080046f      jal x8,+8                   ; jump to 0x3c; x8 gets link 0x38
+00000038   06300193      addi x3,x0,99               ; wrong path after JAL
+0000003c   03800213      addi x4,x0,0x38             ; expected JAL link address
+00000040   04441263      bne x8,x4,fail              ; verify JAL wrote PC+4
+00000044   00700213      addi x4,x0,7
+00000048   02419e63      bne x3,x4,fail              ; verify JAL flushed wrong path
+0000004c   05900493      addi x9,x0,0x59             ; odd JALR base; target is 0x58
+00000050   00048567      jalr x10,0(x9)              ; masks bit 0, jumps to 0x58; link=0x54
+00000054   06300193      addi x3,x0,99               ; wrong path after JALR
+00000058   05400213      addi x4,x0,0x54             ; expected JALR link address
+0000005c   02451463      bne x10,x4,fail             ; verify JALR wrote PC+4
+00000060   00700213      addi x4,x0,7
+00000064   02419063      bne x3,x4,fail              ; verify JALR flushed wrong path
+00000068   06308013      addi x0,x1,99               ; attempt to write x0; result discarded
+0000006c   00000213      addi x4,x0,0                ; read x0
+00000070   00021a63      bne x4,x0,fail              ; x0 must still be zero
+00000074   10000593      addi x11,x0,256             ; result address = byte address 0x100
+00000078   05500613      addi x12,x0,0x55            ; PASS signature
+0000007c   00c5a023      sw x12,0(x11)               ; write PASS to dmem[64]
+00000080   00c0006f      jal x0,+12                  ; skip FAIL handler
+00000084   0ee00613      addi x12,x0,0xEE            ; FAIL signature
+00000088   00c5a023      sw x12,0(x11)               ; write FAIL to dmem[64]
+0000008c   0000006f      jal x0,0                   ; park forever
+
+The core does not implement trap handling for misaligned instruction addresses.
+The JALR test therefore checks the implemented bit-0 masking behavior with a
+target that is word-aligned after masking.

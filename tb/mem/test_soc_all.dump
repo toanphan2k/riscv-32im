@@ -1,0 +1,93 @@
+RV32IM SoC integration test image
+=================================
+
+Load tb/test_all.hex into cpu_rv32im_top using HEX_FILE="tb/test_all.hex".
+Each HEX line is one 32-bit instruction, loaded at the matching word address.
+The addresses below are byte addresses; the first instruction starts at 0x00000000.
+
+GPIO result:
+  0x00000055 = PASS (all checks reached)
+  0x000000EE = FAIL (a branch detected an incorrect result)
+The program writes the signature to MMIO address 0x80000000 and then parks.
+Data RAM test location is byte address 0x00000100 (word index 64).
+
+Coverage
+--------
+  ALU: ADD, SUB, AND, OR, XOR, SLT, SLTU.
+  Forwarding: back-to-back dependent ADDI/ADD operations.
+  Load-use: LW followed immediately by an instruction consuming its result.
+  Branches: taken BEQ, not-taken BEQ, and BNE result checks.
+  Jumps: JAL and JALR redirect and link-address checks.
+  DMEM: SW followed by LW; loaded value is then consumed by ADD.
+  RV32M: MUL, DIV, and REM with expected results 120, 3, and 2.
+  GPIO MMIO: PASS/FAIL signature store.
+
+Address    Machine code  Instruction / purpose
+--------   ------------  ---------------------
+00000000   01400093      addi x1,x0,20              ; operand A
+00000004   00600113      addi x2,x0,6               ; operand B
+00000008   002081b3      add x3,x1,x2               ; x3 = 26 (forwarding)
+0000000c   01a00213      addi x4,x0,26              ; expected value
+00000010   0c419c63      bne x3,x4,fail             ; ADD check
+00000014   402082b3      sub x5,x1,x2               ; x5 = 14
+00000018   00e00213      addi x4,x0,14
+0000001c   0c429663      bne x5,x4,fail             ; SUB check
+00000020   0020f333      and x6,x1,x2               ; x6 = 4
+00000024   00400213      addi x4,x0,4
+00000028   0c431063      bne x6,x4,fail             ; AND check
+0000002c   0020e3b3      or x7,x1,x2                ; x7 = 22
+00000030   01600213      addi x4,x0,22
+00000034   0a439a63      bne x7,x4,fail             ; OR check
+00000038   0020c433      xor x8,x1,x2               ; x8 = 18
+0000003c   01200213      addi x4,x0,18
+00000040   0a441463      bne x8,x4,fail             ; XOR check
+00000044   001124b3      slt x9,x2,x1               ; x9 = 1 (signed 6 < 20)
+00000048   00100213      addi x4,x0,1
+0000004c   08449e63      bne x9,x4,fail             ; SLT check
+00000050   00113533      sltu x10,x2,x1             ; x10 = 1 (unsigned 6 < 20)
+00000054   08451a63      bne x10,x4,fail            ; SLTU check
+00000058   00300593      addi x11,x0,3              ; forwarding chain starts
+0000005c   00458613      addi x12,x11,4             ; x12 = 7
+00000060   00b606b3      add x13,x12,x11            ; x13 = 10
+00000064   00a00213      addi x4,x0,10
+00000068   08469063      bne x13,x4,fail            ; dependent ALU check
+0000006c   10000713      addi x14,x0,256            ; RAM byte address 0x100
+00000070   00d72023      sw x13,0(x14)              ; store 10 to RAM
+00000074   00072783      lw x15,0(x14)              ; read it back
+00000078   00178833      add x16,x15,x1             ; load-use dependency; x16 = 30
+0000007c   01e00213      addi x4,x0,30
+00000080   06481463      bne x16,x4,fail            ; load-use and RAM check
+00000084   00318463      beq x3,x3,branch_taken_ok   ; must take branch
+00000088   0600006f      jal x0,fail                ; fail if branch was not taken
+0000008c   04418e63      beq x3,x4,fail             ; must not take: 26 != 30
+00000090   0080036f      jal x6,jal_ok               ; x6 receives link 0x94
+00000094   0540006f      jal x0,fail                ; fail if JAL did not redirect
+00000098   09400213      addi x4,x0,148             ; expected JAL link address
+0000009c   04431663      bne x6,x4,fail             ; verify JAL link
+000000a0   0ac00893      addi x17,x0,172            ; absolute JALR target 0xAC
+000000a4   000883e7      jalr x7,0(x17)              ; x7 receives link 0xA8
+000000a8   0400006f      jal x0,fail                ; fail if JALR did not redirect
+000000ac   0a800213      addi x4,x0,168             ; expected JALR link address
+000000b0   02439c63      bne x7,x4,fail             ; verify JALR link
+000000b4   02208933      mul x18,x1,x2              ; x18 = 120
+000000b8   07800213      addi x4,x0,120
+000000bc   02491663      bne x18,x4,fail            ; MUL check
+000000c0   0220c9b3      div x19,x1,x2              ; x19 = 3
+000000c4   00300213      addi x4,x0,3
+000000c8   02499063      bne x19,x4,fail            ; DIV check
+000000cc   0220ea33      rem x20,x1,x2              ; x20 = 2
+000000d0   00200213      addi x4,x0,2
+000000d4   004a1a63      bne x20,x4,fail            ; REM check
+000000d8   80000ab7      lui x21,0x80000            ; GPIO base = 0x80000000
+000000dc   05500b13      addi x22,x0,0x55           ; PASS signature
+000000e0   016aa023      sw x22,0(x21)              ; write PASS to GPIO
+000000e4   0100006f      jal x0,done                ; skip FAIL handler
+000000e8   80000ab7      lui x21,0x80000            ; fail handler: GPIO base
+000000ec   0ee00b13      addi x22,x0,0xEE           ; FAIL signature
+000000f0   016aa023      sw x22,0(x21)              ; write FAIL to GPIO
+000000f4   0000006f      jal x0,done                ; park forever
+
+Notes
+-----
+JAL/JALR link checks require the decoder to select PC+4 as the writeback source.
+GPIO stores are full-word SWs, matching the current top-level GPIO register.

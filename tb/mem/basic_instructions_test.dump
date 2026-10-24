@@ -1,0 +1,108 @@
+RV32I Level 1 basic-instruction test
+====================================
+
+Memory image: tb/basic_instructions_test.hex
+Each line is one 32-bit instruction word, beginning at byte address 0.
+Unused memory after the last instruction can be filled with NOPs by the testbench.
+
+The program verifies each result using BNE checks. Any failed check branches to
+the FAIL handler, which stores 0x000000EE at data-memory byte address 0x100.
+If all checks pass, it stores 0x00000055 at byte address 0x100.
+Since RAM is word-addressed internally, this result is dmem[64].
+
+Expected final result:
+  dmem[64] = 0x00000055 : all instruction checks passed
+  dmem[64] = 0x000000EE : at least one instruction check failed
+
+Coverage:
+  Register arithmetic: ADD, SUB
+  Register logical:    AND, OR, XOR
+  Immediate arithmetic/logical: ADDI (positive and negative), ANDI, ORI, XORI
+  Shifts: SLLI, SRLI, SRAI, SLL, SRL, SRA
+  Comparisons: SLT, SLTU, SLTI, SLTIU
+  Upper immediate: LUI and AUIPC
+
+Address    Machine code  Instruction / check
+--------   ------------  --------------------
+00000000   01400093      addi x1,x0,20           ; x1 = 20
+00000004   00600113      addi x2,x0,6            ; x2 = 6
+00000008   002081b3      add x3,x1,x2            ; x3 = 26
+0000000c   01a00213      addi x4,x0,26
+00000010   12419063      bne x3,x4,fail          ; verify ADD
+00000014   402081b3      sub x3,x1,x2            ; x3 = 14
+00000018   00e00213      addi x4,x0,14
+0000001c   10419a63      bne x3,x4,fail          ; verify SUB
+00000020   0020f1b3      and x3,x1,x2            ; x3 = 4
+00000024   00400213      addi x4,x0,4
+00000028   10419463      bne x3,x4,fail          ; verify AND
+0000002c   0020e1b3      or x3,x1,x2             ; x3 = 22
+00000030   01600213      addi x4,x0,22
+00000034   0e419e63      bne x3,x4,fail          ; verify OR
+00000038   0020c1b3      xor x3,x1,x2            ; x3 = 18
+0000003c   01200213      addi x4,x0,18
+00000040   0e419863      bne x3,x4,fail          ; verify XOR
+00000044   ffb08193      addi x3,x1,-5           ; signed immediate, x3 = 15
+00000048   00f00213      addi x4,x0,15
+0000004c   0e419263      bne x3,x4,fail          ; verify ADDI/sign extension
+00000050   0070f193      andi x3,x1,7            ; x3 = 4
+00000054   00400213      addi x4,x0,4
+00000058   0c419c63      bne x3,x4,fail          ; verify ANDI
+0000005c   01016193      ori x3,x2,16            ; x3 = 22
+00000060   01600213      addi x4,x0,22
+00000064   0c419663      bne x3,x4,fail          ; verify ORI
+00000068   01f0c193      xori x3,x1,31           ; x3 = 11
+0000006c   00b00213      addi x4,x0,11
+00000070   0c419063      bne x3,x4,fail          ; verify XORI
+00000074   00211193      slli x3,x2,2            ; x3 = 24
+00000078   01800213      addi x4,x0,24
+0000007c   0a419a63      bne x3,x4,fail          ; verify SLLI
+00000080   0020d193      srli x3,x1,2            ; x3 = 5
+00000084   00500213      addi x4,x0,5
+00000088   0a419463      bne x3,x4,fail          ; verify SRLI
+0000008c   fe000093      addi x1,x0,-32          ; x1 = 0xffffffe0
+00000090   4020d193      srai x3,x1,2            ; arithmetic shift; x3 = -8
+00000094   ff800213      addi x4,x0,-8
+00000098   08419c63      bne x3,x4,fail          ; verify SRAI/sign fill
+0000009c   00200293      addi x5,x0,2            ; register shift amount
+000000a0   01400093      addi x1,x0,20           ; restore x1
+000000a4   005111b3      sll x3,x2,x5            ; x3 = 24
+000000a8   01800213      addi x4,x0,24
+000000ac   08419263      bne x3,x4,fail          ; verify SLL
+000000b0   0050d1b3      srl x3,x1,x5            ; x3 = 5
+000000b4   00500213      addi x4,x0,5
+000000b8   06419c63      bne x3,x4,fail          ; verify SRL
+000000bc   fe000093      addi x1,x0,-32
+000000c0   4050d1b3      sra x3,x1,x5            ; arithmetic shift; x3 = -8
+000000c4   ff800213      addi x4,x0,-8
+000000c8   06419463      bne x3,x4,fail          ; verify SRA
+000000cc   0020a1b3      slt x3,x1,x2            ; signed -32 < 6; x3 = 1
+000000d0   00100213      addi x4,x0,1
+000000d4   04419e63      bne x3,x4,fail          ; verify SLT
+000000d8   0020b1b3      sltu x3,x1,x2           ; unsigned 0xffffffe0 < 6 is false
+000000dc   00000213      addi x4,x0,0
+000000e0   04419863      bne x3,x4,fail          ; verify SLTU
+000000e4   0000a193      slti x3,x1,0            ; signed -32 < 0; x3 = 1
+000000e8   00100213      addi x4,x0,1
+000000ec   04419263      bne x3,x4,fail          ; verify SLTI
+000000f0   0010b193      sltiu x3,x1,1           ; unsigned 0xffffffe0 < 1 is false
+000000f4   00000213      addi x4,x0,0
+000000f8   02419c63      bne x3,x4,fail          ; verify SLTIU
+000000fc   123450b7      lui x1,0x12345           ; x1 = 0x12345000
+00000100   12300113      addi x2,x0,0x123         ; independently build expected constant
+00000104   00c11113      slli x2,x2,12
+00000108   45010113      addi x2,x2,0x450
+0000010c   00811113      slli x2,x2,8             ; x2 = 0x12345000
+00000110   02209063      bne x1,x2,fail           ; verify LUI
+00000114   00000097      auipc x1,0               ; x1 = current PC = 0x114
+00000118   11400113      addi x2,x0,0x114         ; expected PC value
+0000011c   00209a63      bne x1,x2,fail           ; verify AUIPC
+00000120   10000513      addi x10,x0,256          ; signature RAM byte address
+00000124   05500593      addi x11,x0,0x55         ; PASS signature
+00000128   00b52023      sw x11,0(x10)            ; dmem[64] = PASS
+0000012c   00c0006f      jal x0,done              ; skip FAIL handler
+00000130   0ee00593      addi x11,x0,0xEE         ; FAIL signature
+00000134   00b52023      sw x11,0(x10)            ; dmem[64] = FAIL
+00000138   0000006f      jal x0,done              ; park forever
+
+The branch instructions target the FAIL handler at 0x130. The success path
+stores its signature at byte address 0x100 (word index 64) and jumps to 0x138.

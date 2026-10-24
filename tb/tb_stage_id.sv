@@ -135,7 +135,8 @@ module tb_stage_id;
         input logic exp_mem_read,
         input logic exp_mem_write,
         input logic exp_branch,
-        input logic exp_jump
+        input logic exp_jump,
+        input wb_src_sel_e exp_wb_src_sel
     );
         logic ok;
         begin
@@ -151,7 +152,8 @@ module tb_stage_id;
                  (id_ctrl.en_mem_read === exp_mem_read) &&
                  (id_ctrl.en_mem_write === exp_mem_write) &&
                  (id_ctrl.en_branch === exp_branch) &&
-                 (id_ctrl.en_jump === exp_jump);
+                 (id_ctrl.en_jump === exp_jump) &&
+                 (id_ctrl.wb_src_sel === exp_wb_src_sel);
             record_result(name, ok);
             if (!ok) begin
                 $display("       rs1=%0d/%0d rs2=%0d/%0d rd=%0d/%0d imm=%h/%h",
@@ -162,6 +164,8 @@ module tb_stage_id;
                          exp_uses_rs1, exp_uses_rs2, id_ctrl.en_reg_write,
                          id_ctrl.en_mem_read, id_ctrl.en_mem_write,
                          id_ctrl.en_branch, id_ctrl.en_jump);
+                $display("       wb_src_sel=%b expected=%b",
+                         id_ctrl.wb_src_sel, exp_wb_src_sel);
             end
         end
     endtask
@@ -187,59 +191,59 @@ module tb_stage_id;
         check_decode("PC and PC+4 pass through",
                      encode_i(12'd7, 5'd3, ADD, 5'd4, OP_IMM),
                      5'd3, 5'd7, 5'd4, 32'd7,
-                     1, 0, 1, 0, 0, 0, 0);
+                     1, 0, 1, 0, 0, 0, 0, WB_SRC_ALU);
         record_result("PC outputs match inputs",
                       id_out_pc === 32'h1000 && id_out_pc4 === 32'h1004);
 
         check_decode("ADDI positive immediate and source decode",
                      encode_i(12'd123, 5'd3, ADD, 5'd4, OP_IMM),
                      5'd3, 5'd27, 5'd4, 32'd123,
-                     1, 0, 1, 0, 0, 0, 0);
+                     1, 0, 1, 0, 0, 0, 0, WB_SRC_ALU);
         check_decode("ADDI sign-extends negative immediate",
                      encode_i(12'hFFD, 5'd3, ADD, 5'd4, OP_IMM),
                      5'd3, 5'd29, 5'd4, 32'hFFFF_FFFD,
-                     1, 0, 1, 0, 0, 0, 0);
+                     1, 0, 1, 0, 0, 0, 0, WB_SRC_ALU);
         check_decode("LW decodes base register and signed offset",
                      encode_i(12'hFF8, 5'd6, LD_LW, 5'd7, OP_LOAD),
                      5'd6, 5'd24, 5'd7, 32'hFFFF_FFF8,
-                     1, 0, 1, 1, 0, 0, 0);
+                     1, 0, 1, 1, 0, 0, 0, WB_SRC_MEM);
         check_decode("JALR decodes register, immediate, and jump",
                      encode_i(12'd12, 5'd8, ADD, 5'd1, OP_JALR),
                      5'd8, 5'd12, 5'd1, 32'd12,
-                     1, 0, 1, 0, 0, 0, 1);
+                     1, 0, 1, 0, 0, 0, 1, WB_SRC_PC_4);
         check_decode("SW decodes both sources and split immediate",
                      encode_s(12'hFE4, 5'd10, 5'd9, ST_SW, OP_STORE),
                      5'd9, 5'd10, 5'd4, 32'hFFFF_FFE4,
-                     1, 1, 0, 0, 1, 0, 0);
+                     1, 1, 0, 0, 1, 0, 0, WB_SRC_ALU);
         check_decode("BEQ decodes both sources and branch immediate",
                      encode_b(13'd16, 5'd12, 5'd11, BR_BEQ, OP_BRANCH),
                      5'd11, 5'd12, 5'd16, 32'd16,
-                     1, 1, 0, 0, 0, 1, 0);
+                     1, 1, 0, 0, 0, 1, 0, WB_SRC_ALU);
         check_decode("LUI does not use source registers",
                      32'h1234_52B7, 5'd8, 5'd3, 5'd5, 32'h1234_5000,
-                     0, 0, 1, 0, 0, 0, 0);
+                     0, 0, 1, 0, 0, 0, 0, WB_SRC_ALU);
         check_decode("AUIPC does not use source registers",
                      32'h0001_0717, 5'd2, 5'd0, 5'd14, 32'h0001_0000,
-                     0, 0, 1, 0, 0, 0, 0);
+                     0, 0, 1, 0, 0, 0, 0, WB_SRC_ALU);
         check_decode("JAL decodes jump and UJ immediate",
                      32'h0100_00EF, 5'd0, 5'd16, 5'd1, 32'd16,
-                     0, 0, 1, 0, 0, 0, 1);
+                     0, 0, 1, 0, 0, 0, 1, WB_SRC_PC_4);
         check_decode("R-type instruction uses both operands",
                      encode_r(OP_REG, 5'd3, ADD, 5'd1, 5'd2, 7'b0000000),
                      5'd1, 5'd2, 5'd3, 32'd0,
-                     1, 1, 1, 0, 0, 0, 0);
+                     1, 1, 1, 0, 0, 0, 0, WB_SRC_ALU);
         record_result("R-type ADD selects ALU_ADD",
                       id_ctrl.alu_opcode === ALU_ADD);
         check_decode("R-type SUB uses both operands",
                      encode_r(OP_REG, 5'd4, ADD, 5'd3, 5'd1, 7'b0100000),
                      5'd3, 5'd1, 5'd4, 32'd0,
-                     1, 1, 1, 0, 0, 0, 0);
+                     1, 1, 1, 0, 0, 0, 0, WB_SRC_ALU);
         record_result("R-type SUB selects ALU_SUB",
                       id_ctrl.alu_opcode === ALU_SUB);
         check_decode("M-extension instruction decodes M control",
                      {7'b0000001, 5'd2, 5'd1, M_DIV, 5'd3, OP_REG},
                      5'd1, 5'd2, 5'd3, 32'd0,
-                     1, 1, 1, 0, 0, 0, 0);
+                     1, 1, 1, 0, 0, 0, 0, WB_SRC_M_EXT);
 
         wb_en_reg_write = 1'b1;
         wb_rd_addr = 5'd5;
