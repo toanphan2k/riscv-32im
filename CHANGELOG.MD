@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.3.6] - 2026-10-24
+
+### Added
+- Introduce 7-segment-counter led, used for compiling and load to imem
+
 ## [0.3.5] - 2026-10-24
 
 ### Added
