@@ -1,9 +1,14 @@
 # Changelog
 
-## [0.3.6] - 2026-10-24
+## [0.4.0] - 2026-10-28
 
 ### Added
-- Introduce 7-segment-counter led, used for compiling and load to imem
+- added cpu_rv32im_top.sv connect to ram and rom
+- added dmem structure image (gen by AI)
+
+### Fixed
+- After running with counter test, we see that we need to init register file at reset.
+- x2 = sp = 0x4000
 
 ## [0.3.5] - 2026-10-24
 

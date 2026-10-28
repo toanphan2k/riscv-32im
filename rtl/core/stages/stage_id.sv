@@ -19,7 +19,9 @@
 
 import rv32im_pkg::*;
 
-module stage_id (
+module stage_id #(
+    parameter logic [XLEN-1:0] RESET_SP = '0
+) (
     input  logic                        clk,
     input  logic                        rst_n,
     input  logic [XLEN-1:0]             id_pc,
@@ -57,7 +59,9 @@ module stage_id (
         .imm(id_imm)
     );
 
-    register_file register_file_u (
+    register_file #(
+        .RESET_SP(RESET_SP)
+    ) register_file_u (
         .clk(clk),
         .rst_n(rst_n),
         .raddr1(id_rs1_addr),

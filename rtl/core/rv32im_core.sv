@@ -19,7 +19,9 @@
 
 import rv32im_pkg::*;
 
-module rv32im_core (
+module rv32im_core #(
+    parameter logic [XLEN-1:0] RESET_SP = '0
+) (
     // Clock and Reset
     input  logic clk,
     input  logic rst_n,
@@ -157,7 +159,9 @@ module rv32im_core (
     //-------------------------------------------------
     // Signal interconnects
     //-------------------------------------------------
-    stage_id stage_id_u (
+    stage_id #(
+        .RESET_SP(RESET_SP)
+    ) stage_id_u (
         .clk(clk),
         .rst_n(rst_n),
         .id_pc(id_pc),

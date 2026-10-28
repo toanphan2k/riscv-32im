@@ -19,7 +19,9 @@
 
 import rv32im_pkg::*;
 
-module register_file (
+module register_file #(
+    parameter logic [XLEN-1:0] RESET_SP = '0
+) (
     input  logic clk,
     input  logic rst_n,
 
@@ -40,8 +42,13 @@ module register_file (
     integer i;
     always_ff @(posedge clk or negedge rst_n) begin: WRITE_REG_DATA
         if(!rst_n) begin
+            // Initialize all registers to 0
+            // x2 is the stack pointer, initialize it to RESET_SP
+            // init x2 point to 0x4000, not yet in dmem space
+            // 0x4000 = 16384 = 1 << 14;
+            // last byte address in dmem = 0x3FFF, 16383
             for (i = 0; i < REG_NUM; i = i + 1) begin
-                regs[i] <= {XLEN{1'b0}};
+                regs[i] <= (i == 2) ? RESET_SP : {XLEN{1'b0}};
             end
         end else begin
             if (en_write && (waddr != 5'b0)) begin

@@ -32,7 +32,9 @@ module single_port_ram #(
     output logic [DATA_WIDTH-1:0] rdata
 );
     // DEPTH = 1 << ADDR_WIDTH; DEPTH = 2^ADDR_WIDTH; DEPTH = 4096
-    // 4096 Storage location
+    // 4096 Storage location for 32 bit data
+    // 4096 * 4 bytes = 16384 bytes of storage
+    // 16384 bytes of storage
     localparam int DEPTH = 1 << ADDR_WIDTH;
     logic [DATA_WIDTH-1:0] ram [0:DEPTH-1];
 

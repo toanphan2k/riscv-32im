@@ -46,6 +46,38 @@ See the files in the `docs/` directory for architecture overviews and instructio
 - `docs/RISCV_ISA_Architect.md`
 - `docs/instruction_set.md`
 
+## RAM design and stack layout
+This project uses a byte-addressable RAM that is physically organized as 32-bit words. Each word contains four bytes, so the byte address is mapped as:
+
+- word index = byte address >> 2
+- byte within word = byte address & 0x3
+
+Example memory layout for the 4 KiB word-addressed RAM (16 KiB total, because 4096 words x 4 bytes):
+
+| RISC-V byte address | RAM word index | Byte within word | Meaning |
+|---|---:|---:|---|
+| 0x0000 | 0 | 0 | start of RAM |
+| 0x0001 | 0 | 1 | byte 1 of word 0 |
+| 0x0002 | 0 | 2 | byte 2 of word 0 |
+| 0x0003 | 0 | 3 | byte 3 of word 0 |
+| 0x0004 | 1 | 0 | start of next word |
+| ... | ... | ... | ... |
+| 0x3FFC | 4095 | 0 | last word, byte 0 |
+| 0x3FFD | 4095 | 1 | last word, byte 1 |
+| 0x3FFE | 4095 | 2 | last word, byte 2 |
+| 0x3FFF | 4095 | 3 | last byte of RAM |
+| 0x4000 | — | — | stack pointer (`x2` / `sp`) starts here |
+
+This means the RAM covers addresses from 0x0000 to 0x3FFF. The stack pointer register `x2` is initialized to `0x00004000` in this design, which is just above the RAM region. In RISC-V convention, the stack grows downward, so when the processor pushes data onto the stack it uses addresses below `0x4000` (for example, `0x3FFC`, `0x3FF8`, etc.).
+
+### Stack Pointer (x2)
+- Register: `x2`
+- ABI name: `sp` (stack pointer)
+- Reset value in this design: `0x00004000`
+- Meaning: start of the stack area; stack grows toward lower addresses
+
+In other words, the stack begins at the top of the available data memory and descends as functions allocate space and save registers.
+
 ## Notes
 
 This is a compact educational implementation rather than a full commercial processor. It is best suited for learning, simulation, and architectural experimentation.
