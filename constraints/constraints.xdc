@@ -1,9 +1,6 @@
-# Example constraint file for find_min_top.
-# Replace the clock period with the board clock period and fill in the
-# package-pin assignments for your specific FPGA board before implementation.
-
 # Example: 100 MHz input clock (10 ns period).
 # create_clock -name sys_clk -period 10.00 [get_ports clk]
+
 
 # Set I/O standards and package pins using your board's master XDC.
 # Do not use guessed pin assignments; incorrect pins can prevent implementation
@@ -33,4 +30,32 @@
 # set_property -dict { PACKAGE_PIN <address_bit_pin> IOSTANDARD <io_standard> } [get_ports {address[0]}]
 # Repeat for address[1] through address[6].
 
-create_clock -name sys_clk -period 3.00 [get_ports clk]
+## Nexys A7-100T pin constraints for fpga_top.
+
+## Timing-analysis target: 12.5 MHz
+set_property -dict { PACKAGE_PIN E3 IOSTANDARD LVCMOS33 } [get_ports {sys_clk}]
+create_clock -name sys_clk -period 10.000 -waveform {0 5} [get_ports {sys_clk}]
+
+## Active-low CPU reset button
+set_property -dict { PACKAGE_PIN C12 IOSTANDARD LVCMOS33 } [get_ports {sys_rst_n}]
+set_false_path -from [get_ports {sys_rst_n}]
+
+## 7-segment anodes (active-low)
+set_property -dict { PACKAGE_PIN J17 IOSTANDARD LVCMOS33 } [get_ports {anode[0]}]
+set_property -dict { PACKAGE_PIN J18 IOSTANDARD LVCMOS33 } [get_ports {anode[1]}]
+set_property -dict { PACKAGE_PIN T9 IOSTANDARD LVCMOS33 } [get_ports {anode[2]}]
+set_property -dict { PACKAGE_PIN J14 IOSTANDARD LVCMOS33 } [get_ports {anode[3]}]
+set_property -dict { PACKAGE_PIN P14 IOSTANDARD LVCMOS33 } [get_ports {anode[4]}]
+set_property -dict { PACKAGE_PIN T14 IOSTANDARD LVCMOS33 } [get_ports {anode[5]}]
+set_property -dict { PACKAGE_PIN K2 IOSTANDARD LVCMOS33 } [get_ports {anode[6]}]
+set_property -dict { PACKAGE_PIN U13 IOSTANDARD LVCMOS33 } [get_ports {anode[7]}]
+
+## Seven-segment outputs, seg_out[6:0] = {CA, CB, CC, CD, CE, CF, CG}
+set_property -dict { PACKAGE_PIN T10 IOSTANDARD LVCMOS33 } [get_ports {seg_out[6]}]
+set_property -dict { PACKAGE_PIN R10 IOSTANDARD LVCMOS33 } [get_ports {seg_out[5]}]
+set_property -dict { PACKAGE_PIN K16 IOSTANDARD LVCMOS33 } [get_ports {seg_out[4]}]
+set_property -dict { PACKAGE_PIN K13 IOSTANDARD LVCMOS33 } [get_ports {seg_out[3]}]
+set_property -dict { PACKAGE_PIN P15 IOSTANDARD LVCMOS33 } [get_ports {seg_out[2]}]
+set_property -dict { PACKAGE_PIN T11 IOSTANDARD LVCMOS33 } [get_ports {seg_out[1]}]
+set_property -dict { PACKAGE_PIN L18 IOSTANDARD LVCMOS33 } [get_ports {seg_out[0]}]
+

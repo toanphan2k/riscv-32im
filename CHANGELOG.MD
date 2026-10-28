@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.1] - 2026-10-28
+
+### Added
+- added fpga demo top, seven segment led test
+- added test binary and mem
+- added constraints for testing on FPGA
+
 ## [0.4.0] - 2026-10-28
 
 ### Added
