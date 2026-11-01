@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.4.3] - 2026-11-01
+
+### Added
+- Added Synthesis Mem to analyze hw resource usage
+
 ## [0.4.2] - 2026-11-01
 
 ### Changed
