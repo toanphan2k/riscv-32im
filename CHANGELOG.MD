@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.5.3] - 2026-11-03
+
+### Changed
+- Add verdic 32 bit multiplier for testing ppa and see if it can reduce critical path
+
+## [0.5.2] - 2026-11-02
+
+### Changed
+- I see using 1 div runner testbench is convinient and inconvinient as well.
+- Despite all the testcases is the same, but I prefer seperate them to see the waveform in vivado
+- And to see the display log
+- Will try the reuse method when I am smarter :)
+
 ## [0.5.1] - 2026-11-02
 
 ### Fixed
