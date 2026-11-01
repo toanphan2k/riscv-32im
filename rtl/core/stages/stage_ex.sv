@@ -55,9 +55,6 @@ module stage_ex (
     logic [XLEN-1:0]    fwd_rs1_data;
     logic [XLEN-1:0]    fwd_rs2_data;
 
-    logic               alu_flag_zero;
-    logic               alu_flag_less_than;
-    logic               alu_flag_u_less_than;
     logic               br_cond_met;
 
     // Block 1:
@@ -102,9 +99,9 @@ module stage_ex (
         .operand_b(alu_operand_b),
         .opcode(ex_in_ctrl.alu_opcode),
         .result(ex_out_alu_result),
-        .zero_flag(alu_flag_zero),
-        .less_than_flag(alu_flag_less_than),
-        .less_than_unsigned_flag(alu_flag_u_less_than)
+        .zero_flag(),
+        .less_than_flag(),
+        .less_than_unsigned_flag()
     );
 
     // Block 3.2: M_EXT_UNIT Operation
@@ -123,12 +120,12 @@ module stage_ex (
     // Block 4: Branch Evaluation
     always_comb begin : BRANCH_EVALUATION
         case (ex_in_ctrl.funct3)
-            BR_BEQ:  br_cond_met = alu_flag_zero;
-            BR_BNE:  br_cond_met = ~alu_flag_zero;
-            BR_BLT:  br_cond_met = alu_flag_less_than;
-            BR_BGE:  br_cond_met = ~alu_flag_less_than;
-            BR_BLTU: br_cond_met = alu_flag_u_less_than;
-            BR_BGEU: br_cond_met = ~alu_flag_u_less_than;
+            BR_BEQ:  br_cond_met = (fwd_rs1_data == fwd_rs2_data);
+            BR_BNE:  br_cond_met = (fwd_rs1_data != fwd_rs2_data);
+            BR_BLT:  br_cond_met = ($signed(fwd_rs1_data) < $signed(fwd_rs2_data));
+            BR_BGE:  br_cond_met = ($signed(fwd_rs1_data) >= $signed(fwd_rs2_data));
+            BR_BLTU: br_cond_met = (fwd_rs1_data < fwd_rs2_data);
+            BR_BGEU: br_cond_met = (fwd_rs1_data >= fwd_rs2_data);
             default: br_cond_met = 1'b0;
         endcase
     end

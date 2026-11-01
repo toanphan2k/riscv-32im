@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.5.1] - 2026-11-02
+
+### Fixed
+- Violate timimg from branch control path
+- Branch decisions now will not go through ALU any more, branch will not depend on ALU flags
+
 ## [0.5.0] - 2026-11-01
 
 ### Added
