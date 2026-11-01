@@ -29,6 +29,9 @@ module tb_simple_divider;
     integer tests_run;
     integer passed;
     integer failed;
+    logic quiet_passes = 1'b0;
+
+    localparam m_ext_opcode_e DIV_OPS [0:3] = '{M_DIV, M_DIVU, M_REM, M_REMU};
 
     simple_divider dut (
         .operand_a(operand_a),
@@ -57,10 +60,48 @@ module tb_simple_divider;
                        label, op, a, b, div_result, expected);
             end else begin
                 passed = passed + 1;
-                $display("[PASS] %s", label);
+                if (!quiet_passes) $display("[PASS] %s", label);
             end
         end
     endtask
+
+    function automatic logic [XLEN-1:0] reference_result(
+        input logic [XLEN-1:0] a,
+        input logic [XLEN-1:0] b,
+        input m_ext_opcode_e op
+    );
+        begin
+            if (b == '0) begin
+                case (op)
+                    M_REM, M_REMU: reference_result = a;
+                    default:       reference_result = '1;
+                endcase
+            end else if ((a == 32'h8000_0000) && (b == 32'hFFFF_FFFF) &&
+                         ((op == M_DIV) || (op == M_REM))) begin
+                reference_result = (op == M_DIV) ? 32'h8000_0000 : 32'd0;
+            end else begin
+                case (op)
+                    M_DIV:  reference_result = $signed(a) / $signed(b);
+                    M_DIVU: reference_result = a / b;
+                    M_REM:  reference_result = $signed(a) % $signed(b);
+                    M_REMU: reference_result = a % b;
+                    default: reference_result = '0;
+                endcase
+            end
+        end
+    endfunction
+
+    function automatic string op_name(input m_ext_opcode_e op);
+        begin
+            case (op)
+                M_DIV:  op_name = "DIV";
+                M_DIVU: op_name = "DIVU";
+                M_REM:  op_name = "REM";
+                M_REMU: op_name = "REMU";
+                default: op_name = "UNKNOWN";
+            endcase
+        end
+    endfunction
 
     initial begin
         tests_run = 0;
@@ -98,6 +139,35 @@ module tb_simple_divider;
         check_case(32'h8765_4321, 32'd0, M_REMU, 32'h8765_4321,
                    "unsigned remainder by zero");
         check_case(32'd0, 32'd7, M_DIV, 32'd0, "zero dividend");
+
+        quiet_passes = 1'b1;
+        $display("--- Begin Random tests ---");
+        $display("Testing random division values for 2000 times");
+        repeat (2000) begin
+            logic [XLEN-1:0] random_a;
+            logic [XLEN-1:0] random_b;
+            m_ext_opcode_e random_op;
+            random_a = $urandom;
+            random_b = $urandom;
+            random_op = DIV_OPS[$urandom_range(0, 3)];
+            check_case(random_a, random_b, random_op,
+                       reference_result(random_a, random_b, random_op),
+                       "random division");
+        end
+        foreach (DIV_OPS[i]) begin
+            $display("Testing random values of %s for 50 times", op_name(DIV_OPS[i]));
+            repeat (50) begin
+                logic [XLEN-1:0] random_a;
+                logic [XLEN-1:0] random_b;
+                random_a = $urandom;
+                random_b = $urandom_range(0, 40);
+                check_case(random_a, random_b, DIV_OPS[i],
+                           reference_result(random_a, random_b, DIV_OPS[i]),
+                           "random division operand");
+            end
+        end
+        $display("--- End Random tests ---");
+        quiet_passes = 1'b0;
 
         $display("===== simple_divider SUMMARY =====");
         $display("Total: %0d | Passed: %0d | Failed: %0d",

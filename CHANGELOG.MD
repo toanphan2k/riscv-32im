@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.2] - 2026-11-01
+
+### Changed
+- Prettier Testbench, showing more log
+- Update: tb_simple_divider.sv, tb_simple_multiplier.sv, tb_cla_4bit.sb
+- Update: tb_alu_32rv.sg, tb_adder_32bit.sv
+
 ## [0.4.1] - 2026-10-28
 
 ### Added

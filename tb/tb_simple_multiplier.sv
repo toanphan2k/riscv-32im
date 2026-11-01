@@ -29,6 +29,9 @@ module tb_simple_multiplier;
     integer tests_run;
     integer passed;
     integer failed;
+    logic quiet_passes = 1'b0;
+
+    localparam m_ext_opcode_e MUL_OPS [0:3] = '{M_MUL, M_MULH, M_MULHSU, M_MULHU};
 
     simple_multiplier dut (
         .operand_a(operand_a),
@@ -57,10 +60,46 @@ module tb_simple_multiplier;
                        label, op, a, b, mul_result, expected);
             end else begin
                 passed = passed + 1;
-                $display("[PASS] %s", label);
+                if (!quiet_passes) $display("[PASS] %s", label);
             end
         end
     endtask
+
+    function automatic logic [XLEN-1:0] reference_result(
+        input logic [XLEN-1:0] a,
+        input logic [XLEN-1:0] b,
+        input m_ext_opcode_e op
+    );
+        logic signed [63:0] signed_product;
+        logic signed [63:0] mixed_product;
+        logic [63:0] unsigned_product;
+        begin
+            signed_product = $signed({{32{a[31]}}, a}) *
+                             $signed({{32{b[31]}}, b});
+            mixed_product = $signed({{32{a[31]}}, a}) *
+                            $signed({32'd0, b});
+            unsigned_product = {32'd0, a} * {32'd0, b};
+            case (op)
+                M_MUL:    reference_result = signed_product[31:0];
+                M_MULH:   reference_result = signed_product[63:32];
+                M_MULHSU: reference_result = mixed_product[63:32];
+                M_MULHU:  reference_result = unsigned_product[63:32];
+                default:  reference_result = '0;
+            endcase
+        end
+    endfunction
+
+    function automatic string op_name(input m_ext_opcode_e op);
+        begin
+            case (op)
+                M_MUL:    op_name = "MUL";
+                M_MULH:   op_name = "MULH";
+                M_MULHSU: op_name = "MULHSU";
+                M_MULHU:  op_name = "MULHU";
+                default:  op_name = "UNKNOWN";
+            endcase
+        end
+    endfunction
 
     initial begin
         tests_run = 0;
@@ -86,6 +125,35 @@ module tb_simple_multiplier;
                    32'h0000_0000, "positive signed high product");
         check_case(32'h1234_5678, 32'h8765_4321, M_DIV, 32'd0,
                    "non-multiply opcode");
+
+        quiet_passes = 1'b1;
+        $display("--- Begin Random tests ---");
+        $display("Testing random multiplication values for 2000 times");
+        repeat (2000) begin
+            logic [XLEN-1:0] random_a;
+            logic [XLEN-1:0] random_b;
+            m_ext_opcode_e random_op;
+            random_a = $urandom;
+            random_b = $urandom;
+            random_op = MUL_OPS[$urandom_range(0, 3)];
+            check_case(random_a, random_b, random_op,
+                       reference_result(random_a, random_b, random_op),
+                       "random multiplication");
+        end
+        foreach (MUL_OPS[i]) begin
+            $display("Testing random values of %s for 50 times", op_name(MUL_OPS[i]));
+            repeat (50) begin
+                logic [XLEN-1:0] random_a;
+                logic [XLEN-1:0] random_b;
+                random_a = $urandom;
+                random_b = $urandom;
+                check_case(random_a, random_b, MUL_OPS[i],
+                           reference_result(random_a, random_b, MUL_OPS[i]),
+                           "random multiplication operands");
+            end
+        end
+        $display("--- End Random tests ---");
+        quiet_passes = 1'b0;
 
         $display("===== simple_multiplier SUMMARY =====");
         $display("Total: %0d | Passed: %0d | Failed: %0d",

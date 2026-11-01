@@ -35,6 +35,7 @@ module tb_cla_4bit;
     int tests = 0;
     int passed = 0;
     int failed = 0;
+    logic quiet_passes = 1'b0;
 
     // Instantiate Design Under Test (DUT)
     cla_4bit dut (
@@ -50,19 +51,31 @@ module tb_cla_4bit;
     // Verification task to check DUT outputs against reference math
     task automatic check_result(string test_type);
         logic [4:0] expected;
+        logic [4:0] expected_without_cin;
+        logic expected_gen_group;
+        logic expected_prop_group;
         #1; // Wait 1ns for propagation delay
 
-        expected = a + b + cin; // Golden reference calculation
+        expected = {1'b0, a} + {1'b0, b} + cin; // Golden reference calculation
+        expected_without_cin = {1'b0, a} + {1'b0, b};
+        expected_gen_group = expected_without_cin[4];
+        expected_prop_group = &(a ^ b);
 
         tests++;
-        if ({cout, sum} !== expected) begin
-            $display("[FAIL] %s | A=%b, B=%b, Cin=%b | Expected: {Cout=%b, Sum=%b} | Got: {Cout=%b, Sum=%b}",
-                     test_type, a, b, cin, expected[4], expected[3:0], cout, sum);
+        if (({cout, sum} !== expected) ||
+            (gen_group !== expected_gen_group) ||
+            (prop_group !== expected_prop_group)) begin
+            $display("[FAIL] %s | A=%b, B=%b, Cin=%b", test_type, a, b, cin);
+            $display("  expected: Cout=%b Sum=%b Gen=%b Prop=%b",
+                     expected[4], expected[3:0], expected_gen_group, expected_prop_group);
+            $display("  got:      Cout=%b Sum=%b Gen=%b Prop=%b",
+                     cout, sum, gen_group, prop_group);
             failed++;
         end else begin
             passed++;
-            $display("[PASS] %s | A=%4b (%0d), B=%4b (%0d), Cin=%b | Result: Cout=%b, Sum=%4b (%0d)",
-                     test_type, a, a, b, b, cin, cout, sum, sum);
+            if (!quiet_passes)
+                $display("[PASS] %s | A=%4b (%0d), B=%4b (%0d), Cin=%b | Result: Cout=%b, Sum=%4b (%0d)",
+                         test_type, a, a, b, b, cin, cout, sum, sum);
         end
     endtask
 
@@ -108,14 +121,16 @@ module tb_cla_4bit;
         // ----------------------------------------------------
         // SECTION 2: RANDOMIZED TESTING
         // ----------------------------------------------------
-        $display("\n--- Running 100 Randomized Tests ---");
+        $display("\n--- Running 2000 Randomized Tests ---");
 
-        repeat (100) begin
+        quiet_passes = 1'b1;
+        repeat (2000) begin
             a   = $urandom_range(0, 15);
             b   = $urandom_range(0, 15);
             cin = $urandom_range(0, 1);
             check_result("Random Test");
         end
+        quiet_passes = 1'b0;
 
         // ----------------------------------------------------
         // SUMMARY

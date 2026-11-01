@@ -32,16 +32,56 @@
     int tests = 0;
     int passed = 0;
     int failed = 0;
+    logic quiet_passes = 1'b0;
 
     task automatic record_result(input string label, input logic passed_case);
         begin
             tests++;
             if (passed_case === 1'b1) begin
                 passed++;
-                $display("[PASS] %s", label);
+                if (!quiet_passes) $display("[PASS] %s", label);
             end else begin
                 failed++;
                 $display("[FAIL] %s", label);
+            end
+        end
+    endtask
+
+    task automatic check_random_case(
+        input logic [31:0] random_a,
+        input logic [31:0] random_b,
+        input logic random_sub_en
+    );
+        logic [31:0] effective_b;
+        logic [32:0] expected_sum;
+        logic expected_overflow;
+        begin
+            effective_b = random_sub_en ? ~random_b : random_b;
+            expected_sum = {1'b0, random_a} + {1'b0, effective_b} + random_sub_en;
+            expected_overflow = ~(random_a[31] ^ effective_b[31]) &
+                                (random_a[31] ^ expected_sum[31]);
+
+            a = random_a;
+            b = random_b;
+            sub_en = random_sub_en;
+            #1;
+
+            tests++;
+            if ((result !== expected_sum[31:0]) ||
+                (cout !== expected_sum[32]) ||
+                (overflow !== expected_overflow) ||
+                (zero !== (expected_sum[31:0] == 32'd0)) ||
+                (negative !== expected_sum[31])) begin
+                failed++;
+                $display("[FAIL] random %s a=%h b=%h", random_sub_en ? "SUB" : "ADD",
+                         random_a, random_b);
+                $display("  got: result=%h cout=%b overflow=%b zero=%b negative=%b",
+                         result, cout, overflow, zero, negative);
+                $display("  exp: result=%h cout=%b overflow=%b zero=%b negative=%b",
+                         expected_sum[31:0], expected_sum[32], expected_overflow,
+                         (expected_sum[31:0] == 32'd0), expected_sum[31]);
+            end else begin
+                passed++;
             end
         end
     endtask
@@ -174,6 +214,21 @@
         #10;
         $display("Test 10 - ADD: 0x%h + 0x%h = 0x%h (Expected: 0xFFFFFFFF)", a, b, result);
         record_result("Test 10 - mixed bit patterns", result === 32'hFFFFFFFF);
+
+        quiet_passes = 1'b1;
+        $display("--- Begin Random tests ---");
+        $display("Testing random ADD/SUB values for 2000 times");
+        repeat (2000) begin
+            check_random_case($urandom, $urandom, $urandom_range(0, 1));
+        end
+        for (int mode = 0; mode < 2; mode++) begin
+            $display("Testing random %s values for 50 times", mode ? "SUB" : "ADD");
+            repeat (50) begin
+                check_random_case($urandom, $urandom, mode[0]);
+            end
+        end
+        $display("--- End Random tests ---");
+        quiet_passes = 1'b0;
 
         $display("===== rca_32bit SUMMARY =====");
         $display("Total: %0d | Passed: %0d | Failed: %0d", tests, passed, failed);
