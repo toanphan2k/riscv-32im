@@ -20,7 +20,7 @@
 module cpu_rv32im_top #(
     parameter int   DATA_WIDTH = 32,
     parameter int   ADDR_WIDTH = 12,
-    parameter       HEX_FILE = "test.mem"
+    parameter       HEX_FILE = ""
 )(
     input  logic        clk,
     input  logic        rst_n,

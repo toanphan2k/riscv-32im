@@ -50,26 +50,12 @@ module fpga_top #(
         .gpio_out(gpio_out)
     );
 
-    always_comb begin
-        anode = 8'b11111111; // Disable all anodes
-        seg_out = 7'b1111111; // Turn off all segments
-
-        // Active-low segment outputs ordered as {CA, CB, CC, CD, CE, CF, CG}.
-        case (gpio_out[3:0])
-            4'h0: seg_out = 7'b0000001;
-            4'h1: seg_out = 7'b1001111;
-            4'h2: seg_out = 7'b0010010;
-            4'h3: seg_out = 7'b0000110;
-            4'h4: seg_out = 7'b1001100;
-            4'h5: seg_out = 7'b0100100;
-            4'h6: seg_out = 7'b0100000;
-            4'h7: seg_out = 7'b0001111;
-            4'h8: seg_out = 7'b0000000;
-            4'h9: seg_out = 7'b0000100;
-            default: seg_out = 7'b1111111;
-        endcase
-
-        anode = 8'b11111110; // Enable AN0 (active-low)
-    end
+    seven_segments_led_ctrl display_u (
+        .sys_clk       (sys_clk),
+        .sys_rst_n     (rst_n_sync),
+        .counter_value (gpio_out),
+        .anode         (anode),
+        .seg_out       (seg_out)
+    );
 
 endmodule

@@ -51,15 +51,18 @@ module m_extesion_unit(
 
     //-----------------------------------------------
     // BEGIN CODE BLOCK FOR SIMPLE M UNITS USING DSP
+    // SORRY: Just figure out, on FPGA DIV and REM not using DSP
+    // DSP only support MUL
     //-----------------------------------------------
-    simple_multiplier simple_multiplier_u(
+    simple_multiplier multiplier_u (
         .operand_a(operand_a),
         .operand_b(operand_b),
         .m_opcode(m_opcode),
         .mul_result(mul_result)
     );
 
-    simple_divider simple_divider_u(
+    /*
+    simple_divider divider_u (
         .operand_a(operand_a),
         .operand_b(operand_b),
         .m_opcode(m_opcode),
@@ -69,23 +72,34 @@ module m_extesion_unit(
     // and do not have have start and odne
     assign div_start    = 1'b0;
     assign div_done     = 1'b1;
+    */
     //-----------------------------------------------
-    // ENDs CODE BLOCK FOR SIMPLE M UNITS USING DSP
-    //-----------------------------------------------
-
-
-    //-----------------------------------------------
-    // BEGIN CODE BLOCK FOR OHER ALGORITHMS
+    // END CODE BLOCK FOR SIMPLE M UNITS USING DSP
+    // SORRY: Just figure out, on FPGA DIV and REM not using DSP
     //-----------------------------------------------
 
 
     //-----------------------------------------------
-    // END CODE BLOCK FOR OHER ALGORITHMS
+    // BEGIN CODE BLOCK FOR OHER RADIX4-NONRES
     //-----------------------------------------------
+    assign div_start = start && is_div;
+    radix2_res_divider divider_u (
+        .clk(clk),
+        .rst_n(rst_n),
+        .operand_a(operand_a),
+        .operand_b(operand_b),
+        .m_opcode(m_opcode),
+        .div_result(div_result),
+        .start(div_start),
+        .done(div_done),
+        .is_busy(is_busy)
+    );
 
+    //-----------------------------------------------
+    // END CODE BLOCK FOR OHER RADIX4-NONRES
+    //-----------------------------------------------
 
     // General Pipeline signals
-    assign is_busy  = div_start && !div_done;
     assign done     = is_mul ? 1'b1 : div_done;
     assign m_result = is_div ? div_result : mul_result;
 

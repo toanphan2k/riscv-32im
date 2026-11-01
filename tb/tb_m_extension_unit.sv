@@ -50,7 +50,7 @@ module tb_m_extension_unit;
 
     always #5 clk = ~clk;
 
-    task automatic check_case(
+    task automatic check_mul(
         input string name,
         input m_ext_opcode_e op,
         input logic [XLEN-1:0] a,
@@ -58,62 +58,182 @@ module tb_m_extension_unit;
         input logic start_value,
         input logic [XLEN-1:0] expected_result
     );
+        logic case_passed;
+        integer cycle;
         begin
+            @(negedge clk);
             m_opcode  = op;
             operand_a = a;
             operand_b = b;
             start     = start_value;
             #1;
 
+            case_passed = (m_result === expected_result) &&
+                          (is_busy === 1'b0) &&
+                          (done === 1'b1);
+
+            if (start_value) begin
+                for (cycle = 0; cycle < 18; cycle++) begin
+                    @(posedge clk);
+                    #1;
+                    case_passed = case_passed &&
+                                  (is_busy === 1'b0) &&
+                                  (done === 1'b1) &&
+                                  (m_result === expected_result);
+                end
+            end
+
             tests++;
-            if ((m_result !== expected_result) ||
-                (is_busy !== 1'b0) ||
-                (done !== 1'b1)) begin
-                failed++;
-                $display("[FAIL] %s op=%b a=%h b=%h", name, op, a, b);
-                $display("       result got=%h expected=%h | busy=%b expected=0 | done=%b expected=1",
-                         m_result, expected_result, is_busy, done);
-            end else begin
+            if (case_passed) begin
                 passed++;
                 $display("[PASS] %s", name);
+            end else begin
+                failed++;
+                $display("[FAIL] %s op=%b a=%h b=%h", name, op, a, b);
+                $display("       result=%h expected=%h | busy=%b | done=%b",
+                         m_result, expected_result, is_busy, done);
             end
+        end
+    endtask
+
+    task automatic check_div(
+        input string name,
+        input m_ext_opcode_e op,
+        input logic [XLEN-1:0] a,
+        input logic [XLEN-1:0] b,
+        input logic [XLEN-1:0] expected_result
+    );
+        integer cycles;
+        logic case_passed;
+        begin
+            @(negedge clk);
+            m_opcode  = op;
+            operand_a = a;
+            operand_b = b;
+            start     = 1'b1;
+            #1;
+            case_passed = (is_busy === 1'b0) && (done === 1'b0);
+
+            @(posedge clk);
+            #1;
+            if (b != '0 &&
+                !(op == M_DIV && a == 32'h8000_0000 && b == 32'hFFFF_FFFF) &&
+                !(op == M_REM && a == 32'h8000_0000 && b == 32'hFFFF_FFFF))
+                case_passed = case_passed && (is_busy === 1'b1) &&
+                              (done === 1'b0);
+            @(negedge clk);
+            start = 1'b0;
+
+            cycles = 0;
+            while ((done !== 1'b1) && (cycles < 20)) begin
+                @(posedge clk);
+                #1;
+                cycles++;
+            end
+
+            case_passed = case_passed && (done === 1'b1) &&
+                          (is_busy === 1'b0) &&
+                          (m_result === expected_result);
+            if ((b != '0) &&
+                !(op == M_DIV && a == 32'h8000_0000 && b == 32'hFFFF_FFFF) &&
+                !(op == M_REM && a == 32'h8000_0000 && b == 32'hFFFF_FFFF))
+                case_passed = case_passed && (cycles == 16);
+
+            tests++;
+            if (case_passed) begin
+                passed++;
+                $display("[PASS] %s (%0d divider cycles)", name, cycles);
+            end else begin
+                failed++;
+                $display("[FAIL] %s op=%b a=%h b=%h", name, op, a, b);
+                $display("       result=%h expected=%h | busy=%b | done=%b | cycles=%0d",
+                         m_result, expected_result, is_busy, done, cycles);
+            end
+
+            @(posedge clk);
+            #1;
+            if ((done !== 1'b0) || (is_busy !== 1'b0)) begin
+                failed++;
+                tests++;
+                $display("[FAIL] %s completion did not return to idle", name);
+            end
+        end
+    endtask
+
+    task automatic check_reset_during_division;
+        begin
+            @(negedge clk);
+            m_opcode = M_DIV;
+            operand_a = 32'd100;
+            operand_b = 32'd3;
+            start = 1'b1;
+            @(posedge clk);
+            #1;
+            start = 1'b0;
+            if (is_busy !== 1'b1) begin
+                failed++;
+                $display("[FAIL] divider did not start before reset");
+            end
+
+            @(negedge clk);
+            rst_n = 1'b0;
+            #1;
+            tests++;
+            if ((is_busy === 1'b0) && (done === 1'b0)) begin
+                passed++;
+                $display("[PASS] reset aborts an in-flight division");
+            end else begin
+                failed++;
+                $display("[FAIL] reset did not clear divider state");
+            end
+            @(posedge clk);
+            @(negedge clk);
+            rst_n = 1'b1;
         end
     endtask
 
     initial begin
         clk = 1'b0;
-        rst_n = 1'b1;
+        rst_n = 1'b0;
         start = 1'b0;
         m_opcode = M_MUL;
         operand_a = '0;
         operand_b = '0;
 
-        $display("===== m_extesion_unit testbench start =====");
+        repeat (2) @(posedge clk);
+        @(negedge clk);
+        rst_n = 1'b1;
 
-        check_case("MUL low product", M_MUL, 32'hFFFF_FFFF, 32'd2,
-                   1'b1, 32'hFFFF_FFFE);
-        check_case("MULH signed high product", M_MULH,
-                   32'h8000_0000, 32'h8000_0000, 1'b1, 32'h4000_0000);
-        check_case("MULHSU signed-by-unsigned high product", M_MULHSU,
-                   32'h8000_0000, 32'hFFFF_FFFF, 1'b1, 32'h8000_0000);
-        check_case("MULHU unsigned high product", M_MULHU,
-                   32'h8000_0000, 32'hFFFF_FFFF, 1'b1, 32'h7FFF_FFFF);
+        $display("===== m_extension_unit testbench start =====");
 
-        check_case("DIV signed negative dividend", M_DIV,
-                   32'hFFFF_FFEC, 32'd3, 1'b1, 32'hFFFF_FFFA);
-        check_case("DIVU unsigned quotient", M_DIVU,
-                   32'hFFFF_FFFF, 32'd2, 1'b1, 32'h7FFF_FFFF);
-        check_case("REM signed negative dividend", M_REM,
-                   32'hFFFF_FFEC, 32'd3, 1'b1, 32'hFFFF_FFFE);
-        check_case("REMU unsigned remainder", M_REMU,
-                   32'hFFFF_FFFF, 32'd2, 1'b1, 32'd1);
+        check_mul("MUL low product", M_MUL, 32'hFFFF_FFFF, 32'd2,
+                  1'b1, 32'hFFFF_FFFE);
+        check_mul("MULH signed high product", M_MULH,
+                  32'h8000_0000, 32'h8000_0000, 1'b1, 32'h4000_0000);
+        check_mul("MULHSU signed-by-unsigned high product", M_MULHSU,
+                  32'h8000_0000, 32'hFFFF_FFFF, 1'b1, 32'h8000_0000);
+        check_mul("MULHU unsigned high product", M_MULHU,
+                  32'h8000_0000, 32'hFFFF_FFFF, 1'b1, 32'h7FFF_FFFF);
+        check_mul("MUL result is combinational when start is low", M_MUL,
+                  32'd7, 32'd9, 1'b0, 32'd63);
 
-        check_case("DIV by zero result", M_DIV,
-                   32'h1234_5678, 32'd0, 1'b1, 32'hFFFF_FFFF);
-        check_case("REM by zero result", M_REM,
-                   32'h1234_5678, 32'd0, 1'b1, 32'h1234_5678);
-        check_case("MUL result is combinational when start is low", M_MUL,
-                   32'd7, 32'd9, 1'b0, 32'd63);
+        check_div("DIV signed negative dividend", M_DIV,
+                  32'hFFFF_FFEC, 32'd3, 32'hFFFF_FFFA);
+        check_div("DIVU unsigned quotient", M_DIVU,
+                  32'hFFFF_FFFF, 32'd2, 32'h7FFF_FFFF);
+        check_div("REM signed negative dividend", M_REM,
+                  32'hFFFF_FFEC, 32'd3, 32'hFFFF_FFFE);
+        check_div("REMU unsigned remainder", M_REMU,
+                  32'hFFFF_FFFF, 32'd2, 32'd1);
+        check_div("DIV by zero result", M_DIV,
+                  32'h1234_5678, 32'd0, 32'hFFFF_FFFF);
+        check_div("REM by zero result", M_REM,
+                  32'h1234_5678, 32'd0, 32'h1234_5678);
+        check_div("DIV signed overflow", M_DIV,
+                  32'h8000_0000, 32'hFFFF_FFFF, 32'h8000_0000);
+        check_div("REM signed overflow", M_REM,
+                  32'h8000_0000, 32'hFFFF_FFFF, 32'd0);
+        check_reset_during_division();
 
         $display("===== m_extension_unit SUMMARY =====");
         $display("Total: %0d | Passed: %0d | Failed: %0d",

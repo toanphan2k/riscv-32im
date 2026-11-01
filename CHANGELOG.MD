@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.0] - 2026-11-01
+
+### Added
+- Display 4 7-seg segments
+- Added testbench for sequential div.
+- Added radix conventional div (2 and 4)
+
 ## [0.4.3] - 2026-11-01
 
 ### Added
