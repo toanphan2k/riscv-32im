@@ -75,6 +75,8 @@ module tb_stage_ex;
         .m_unit_busy         (m_unit_busy)
     );
 
+    always #5 clk = ~clk;
+
     task automatic run_case(
         input string name,
         input ctrl_signal_t ctrl,
@@ -96,7 +98,9 @@ module tb_stage_ex;
         input logic [XLEN-1:0] expected_branch_target
     );
         logic case_passed;
+        integer cycles;
         begin
+            @(negedge clk);
             ex_in_ctrl   = ctrl;
             ex_pc        = pc;
             ex_pc4       = pc4;
@@ -110,8 +114,18 @@ module tb_stage_ex;
             fwd_wb_data  = wb_data;
             #1;
 
+            case_passed = (m_unit_busy === ctrl.en_m_ext);
+            cycles = 0;
+            if (ctrl.en_m_ext) begin
+                while ((m_unit_busy !== 1'b0) && (cycles < XLEN + 4)) begin
+                    @(posedge clk);
+                    #1;
+                    cycles++;
+                end
+            end
+
             tests++;
-            case_passed = (ex_out_ctrl === ctrl) &&
+            case_passed = case_passed && (ex_out_ctrl === ctrl) &&
                           (ex_out_pc4 === pc4) &&
                           (ex_out_rd_addr === rd) &&
                           (ex_out_alu_result === expected_alu) &&
@@ -142,6 +156,13 @@ module tb_stage_ex;
                     $display("       M result got=%h expected=%h",
                              ex_out_m_unit_result, expected_m_result);
             end
+
+            if (ctrl.en_m_ext) begin
+                @(negedge clk);
+                ex_in_ctrl.en_m_ext = 1'b0;
+                @(posedge clk);
+                #1;
+            end
         end
     endtask
 
@@ -157,7 +178,7 @@ module tb_stage_ex;
 
     initial begin
         clk = 1'b0;
-        rst_n = 1'b1;
+        rst_n = 1'b0;
         init_ctrl();
         ex_pc = '0;
         ex_pc4 = '0;
@@ -169,6 +190,10 @@ module tb_stage_ex;
         sel_b = FWD_NONE;
         fwd_mem_data = '0;
         fwd_wb_data = '0;
+
+        repeat (2) @(posedge clk);
+        @(negedge clk);
+        rst_n = 1'b1;
 
         $display("===== stage_ex testbench start =====");
 
