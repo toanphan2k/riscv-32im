@@ -50,7 +50,8 @@ module rv32im_core #(
     logic stall_mem_wb, flush_mem_wb;
 
     // Output Forwarding Unit Select
-    fwd_sel_e    fwd_a, fwd_b;
+    logic fwd_a_mem, fwd_a_wb;
+    logic fwd_b_mem, fwd_b_wb;
 
     // IF stage output signal
     logic [XLEN-1:0]    if_pc;
@@ -222,8 +223,10 @@ module rv32im_core #(
         .ex_rs2_data(ex_rs2_data),
         .ex_imm(ex_imm),
         .ex_rd_addr(ex_rd_addr),
-        .sel_a(fwd_a),
-        .sel_b(fwd_b),
+        .sel_a_mem(fwd_a_mem),
+        .sel_a_wb(fwd_a_wb),
+        .sel_b_mem(fwd_b_mem),
+        .sel_b_wb(fwd_b_wb),
         .fwd_mem_data(mem_fwd_data),
         .fwd_wb_data(wb_data),
         .ex_out_ctrl(ex_out_ctrl),
@@ -327,8 +330,10 @@ module rv32im_core #(
         .wb_rd_addr(wb_out_rd_addr),
         .ex_rs1_addr(ex_rs1_addr),
         .ex_rs2_addr(ex_rs2_addr),
-        .fwd_a(fwd_a),
-        .fwd_b(fwd_b)
+        .fwd_a_mem(fwd_a_mem),
+        .fwd_a_wb(fwd_a_wb),
+        .fwd_b_mem(fwd_b_mem),
+        .fwd_b_wb(fwd_b_wb)
     );
 
     //-------------------------------------------------

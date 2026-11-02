@@ -31,8 +31,10 @@ module stage_ex (
     input  logic [XLEN-1:0]         ex_imm,
     input  logic [REG_ADDR_WIDTH-1:0]   ex_rd_addr,
     // Forwarding select signals
-    input  fwd_sel_e                sel_a,
-    input  fwd_sel_e                sel_b,
+    input  logic                    sel_a_mem,
+    input  logic                    sel_a_wb,
+    input  logic                    sel_b_mem,
+    input  logic                    sel_b_wb,
     input  logic [XLEN-1:0]         fwd_mem_data,
     input  logic [XLEN-1:0]         fwd_wb_data,
     // Outputs to EX/MEM Register
@@ -55,43 +57,46 @@ module stage_ex (
     logic [XLEN-1:0]    fwd_rs1_data;
     logic [XLEN-1:0]    fwd_rs2_data;
 
+    logic               alu_a_use_rs1;
+    logic               alu_a_use_pc;
     logic               br_cond_met;
+    logic               br_equal;
+    logic               br_less_unsigned;
+    logic               br_less_signed;
 
-    // Block 1:
-    // Forwarding MUX for RS1
-    always_comb begin : FORWADING_RS1
-        case (sel_a)
-            FWD_MEM:  fwd_rs1_data = fwd_mem_data;
-            FWD_WB:   fwd_rs1_data = fwd_wb_data;
-            default:  fwd_rs1_data = ex_rs1_data;
-        endcase
-    end
-    // Forwarding MUX for RS2
-    always_comb begin : FORWADING_RS2
-        case (sel_b)
-            FWD_MEM:  fwd_rs2_data = fwd_mem_data;
-            FWD_WB:   fwd_rs2_data = fwd_wb_data;
-            default:  fwd_rs2_data = ex_rs2_data;
-        endcase
-    end
+    assign fwd_rs1_data = ({XLEN{sel_a_mem}} & fwd_mem_data) |
+                          ({XLEN{sel_a_wb}} & fwd_wb_data) |
+                          ({XLEN{!(sel_a_mem || sel_a_wb)}} & ex_rs1_data);
+    assign fwd_rs2_data = ({XLEN{sel_b_mem}} & fwd_mem_data) |
+                          ({XLEN{sel_b_wb}} & fwd_wb_data) |
+                          ({XLEN{!(sel_b_mem || sel_b_wb)}} & ex_rs2_data);
 
     // Block 2: ALU Operand Selection
     always_comb begin: ALU_OPERAND_A_SEL
+        alu_a_use_rs1 = 1'b0;
+        alu_a_use_pc = 1'b0;
         case(ex_in_ctrl.alu_src_a_sel)
-            ALU_SRC_A_RS1:  alu_operand_a = fwd_rs1_data;
-            ALU_SRC_A_PC:   alu_operand_a = ex_pc;
-            ALU_SRC_A_ZERO: alu_operand_a = 32'b0;
-            default:        alu_operand_a = fwd_rs1_data;
+            ALU_SRC_A_RS1:  alu_a_use_rs1 = 1'b1;
+            ALU_SRC_A_PC:   alu_a_use_pc = 1'b1;
+            ALU_SRC_A_ZERO: ;
+            default:        alu_a_use_rs1 = 1'b1;
         endcase
     end
 
-    always_comb begin: ALU_OPERAND_B_SEL
-        case(ex_in_ctrl.alu_src_b_sel)
-            ALU_SRC_B_RS2:  alu_operand_b = fwd_rs2_data;
-            ALU_SRC_B_IMM:  alu_operand_b = ex_imm;
-            default:        alu_operand_b = fwd_rs2_data;
-        endcase
-    end
+    assign alu_operand_a =
+        ({XLEN{alu_a_use_pc}} & ex_pc) |
+        ({XLEN{alu_a_use_rs1 && sel_a_mem}} & fwd_mem_data) |
+        ({XLEN{alu_a_use_rs1 && sel_a_wb}} & fwd_wb_data) |
+        ({XLEN{alu_a_use_rs1 && !(sel_a_mem || sel_a_wb)}} & ex_rs1_data);
+
+    assign alu_operand_b =
+        ({XLEN{ex_in_ctrl.alu_src_b_sel == ALU_SRC_B_IMM}} & ex_imm) |
+        ({XLEN{(ex_in_ctrl.alu_src_b_sel == ALU_SRC_B_RS2) && sel_b_mem}} &
+         fwd_mem_data) |
+        ({XLEN{(ex_in_ctrl.alu_src_b_sel == ALU_SRC_B_RS2) && sel_b_wb}} &
+         fwd_wb_data) |
+        ({XLEN{(ex_in_ctrl.alu_src_b_sel == ALU_SRC_B_RS2) &&
+               !(sel_b_mem || sel_b_wb)}} & ex_rs2_data);
 
     // Block 3.1: ALU  Operation
     alu_rv32 alu32_u (
@@ -117,15 +122,20 @@ module stage_ex (
         .done() // Not used in this stage, but can be used for future enhancements
     );
 
+    assign br_equal = (fwd_rs1_data == fwd_rs2_data);
+    assign br_less_unsigned = (fwd_rs1_data < fwd_rs2_data);
+    assign br_less_signed = (fwd_rs1_data[XLEN-1] != fwd_rs2_data[XLEN-1]) ?
+                            fwd_rs1_data[XLEN-1] : br_less_unsigned;
+
     // Block 4: Branch Evaluation
     always_comb begin : BRANCH_EVALUATION
         case (ex_in_ctrl.funct3)
-            BR_BEQ:  br_cond_met = (fwd_rs1_data == fwd_rs2_data);
-            BR_BNE:  br_cond_met = (fwd_rs1_data != fwd_rs2_data);
-            BR_BLT:  br_cond_met = ($signed(fwd_rs1_data) < $signed(fwd_rs2_data));
-            BR_BGE:  br_cond_met = ($signed(fwd_rs1_data) >= $signed(fwd_rs2_data));
-            BR_BLTU: br_cond_met = (fwd_rs1_data < fwd_rs2_data);
-            BR_BGEU: br_cond_met = (fwd_rs1_data >= fwd_rs2_data);
+            BR_BEQ:  br_cond_met = br_equal;
+            BR_BNE:  br_cond_met = !br_equal;
+            BR_BLT:  br_cond_met = br_less_signed;
+            BR_BGE:  br_cond_met = !br_less_signed;
+            BR_BLTU: br_cond_met = br_less_unsigned;
+            BR_BGEU: br_cond_met = !br_less_unsigned;
             default: br_cond_met = 1'b0;
         endcase
     end

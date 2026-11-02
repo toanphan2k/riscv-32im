@@ -31,8 +31,10 @@ module tb_stage_ex;
     logic [XLEN-1:0] ex_rs2_data;
     logic [XLEN-1:0] ex_imm;
     logic [REG_ADDR_WIDTH-1:0] ex_rd_addr;
-    fwd_sel_e sel_a;
-    fwd_sel_e sel_b;
+    logic sel_a_mem;
+    logic sel_a_wb;
+    logic sel_b_mem;
+    logic sel_b_wb;
     logic [XLEN-1:0] fwd_mem_data;
     logic [XLEN-1:0] fwd_wb_data;
 
@@ -60,8 +62,10 @@ module tb_stage_ex;
         .ex_rs2_data         (ex_rs2_data),
         .ex_imm              (ex_imm),
         .ex_rd_addr          (ex_rd_addr),
-        .sel_a               (sel_a),
-        .sel_b               (sel_b),
+        .sel_a_mem           (sel_a_mem),
+        .sel_a_wb            (sel_a_wb),
+        .sel_b_mem           (sel_b_mem),
+        .sel_b_wb            (sel_b_wb),
         .fwd_mem_data        (fwd_mem_data),
         .fwd_wb_data         (fwd_wb_data),
         .ex_out_ctrl         (ex_out_ctrl),
@@ -108,8 +112,10 @@ module tb_stage_ex;
             ex_rs2_data  = rs2;
             ex_imm       = imm;
             ex_rd_addr   = rd;
-            sel_a        = forward_a;
-            sel_b        = forward_b;
+            sel_a_mem    = (forward_a == FWD_MEM);
+            sel_a_wb     = (forward_a == FWD_WB);
+            sel_b_mem    = (forward_b == FWD_MEM);
+            sel_b_wb     = (forward_b == FWD_WB);
             fwd_mem_data = mem_data;
             fwd_wb_data  = wb_data;
             #1;
@@ -186,8 +192,10 @@ module tb_stage_ex;
         ex_rs2_data = '0;
         ex_imm = '0;
         ex_rd_addr = '0;
-        sel_a = FWD_NONE;
-        sel_b = FWD_NONE;
+        sel_a_mem = 1'b0;
+        sel_a_wb  = 1'b0;
+        sel_b_mem = 1'b0;
+        sel_b_wb  = 1'b0;
         fwd_mem_data = '0;
         fwd_wb_data = '0;
 

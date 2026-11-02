@@ -44,13 +44,7 @@ module reg_mem_wb (
     assign nop_ctrl = '0;
 
     always_ff @(posedge clk or negedge rst_n) begin
-        if (!rst_n) begin
-            wb_ctrl             <= nop_ctrl;
-            wb_alu_result       <= RST_32BIT_VECTOR;
-            wb_m_unit_result    <= RST_32BIT_VECTOR;
-            wb_pc4              <= RST_32BIT_VECTOR;
-            wb_rd_addr          <= 5'b0;
-        end else if (flush) begin
+        if (!rst_n || flush) begin
             wb_ctrl             <= nop_ctrl;
             wb_alu_result       <= RST_32BIT_VECTOR;
             wb_m_unit_result    <= RST_32BIT_VECTOR;

@@ -24,7 +24,22 @@ module tb_forward_unit;
 
     logic        i_mem_rd_wren, i_wb_rd_wren;
     logic [4:0]  i_rs1_addr, i_rs2_addr, i_mem_rd_addr, i_wb_rd_addr;
+    logic        o_fw_a_mem, o_fw_a_wb;
+    logic        o_fw_b_mem, o_fw_b_wb;
     fwd_sel_e    o_fw_a, o_fw_b;
+
+    always_comb begin
+        case ({o_fw_a_mem, o_fw_a_wb})
+            2'b10:   o_fw_a = FWD_MEM;
+            2'b01:   o_fw_a = FWD_WB;
+            default: o_fw_a = FWD_NONE;
+        endcase
+        case ({o_fw_b_mem, o_fw_b_wb})
+            2'b10:   o_fw_b = FWD_MEM;
+            2'b01:   o_fw_b = FWD_WB;
+            default: o_fw_b = FWD_NONE;
+        endcase
+    end
 
     int tests = 0;
     int errors = 0;
@@ -36,8 +51,10 @@ module tb_forward_unit;
         .ex_rs2_addr (i_rs2_addr),
         .mem_rd_addr (i_mem_rd_addr),
         .wb_rd_addr  (i_wb_rd_addr),
-        .fwd_a       (o_fw_a),
-        .fwd_b       (o_fw_b)
+        .fwd_a_mem   (o_fw_a_mem),
+        .fwd_a_wb    (o_fw_a_wb),
+        .fwd_b_mem   (o_fw_b_mem),
+        .fwd_b_wb    (o_fw_b_wb)
     );
 
     task automatic check_case(
@@ -60,7 +77,8 @@ module tb_forward_unit;
             i_wb_rd_addr  = wb_rd;
             #10;
             tests++;
-            if ((o_fw_a !== exp_a) || (o_fw_b !== exp_b)) begin
+            if ((o_fw_a !== exp_a) || (o_fw_b !== exp_b) ||
+                (o_fw_a_mem && o_fw_a_wb) || (o_fw_b_mem && o_fw_b_wb)) begin
                 errors++;
                 $display("[FAIL] [%0t] %-38s A expected=%0d got=%0d; B expected=%0d got=%0d",
                          $time, name, exp_a, o_fw_a, exp_b, o_fw_b);

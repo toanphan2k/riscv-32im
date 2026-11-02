@@ -20,34 +20,24 @@
 import rv32im_pkg::*;
 
 module forward_unit (
-    input logic         mem_rd_wren, wb_rd_wren,
-    input logic         [REG_ADDR_WIDTH-1:0] ex_rs1_addr,
-    input logic         [REG_ADDR_WIDTH-1:0] ex_rs2_addr,
-    input logic         [REG_ADDR_WIDTH-1:0] mem_rd_addr,
-    input logic         [REG_ADDR_WIDTH-1:0] wb_rd_addr,
-    output fwd_sel_e    fwd_a,
-    output fwd_sel_e    fwd_b
+    input  logic         mem_rd_wren, wb_rd_wren,
+    input  logic         [REG_ADDR_WIDTH-1:0] ex_rs1_addr,
+    input  logic         [REG_ADDR_WIDTH-1:0] ex_rs2_addr,
+    input  logic         [REG_ADDR_WIDTH-1:0] mem_rd_addr,
+    input  logic         [REG_ADDR_WIDTH-1:0] wb_rd_addr,
+    output logic        fwd_a_mem,
+    output logic        fwd_a_wb,
+    output logic        fwd_b_mem,
+    output logic        fwd_b_wb
 );
-    // Forwading for RS1
-    always_comb begin : FORWARDING_RS1
-        if(mem_rd_wren && (mem_rd_addr != 5'd0) && (mem_rd_addr == ex_rs1_addr)) begin
-            fwd_a = FWD_MEM;
-        end else if (wb_rd_wren && (wb_rd_addr != 5'd0) && (wb_rd_addr == ex_rs1_addr)) begin
-            fwd_a = FWD_WB;
-        end else begin
-            fwd_a = FWD_NONE;
-        end
-    end
+    assign fwd_a_mem = mem_rd_wren && (mem_rd_addr != '0) &&
+                       (mem_rd_addr == ex_rs1_addr);
+    assign fwd_a_wb  = !fwd_a_mem && wb_rd_wren && (wb_rd_addr != '0) &&
+                       (wb_rd_addr == ex_rs1_addr);
 
-    // Forwading for RS2
-    always_comb begin : FORWARDING_RS2
-        if(mem_rd_wren && (mem_rd_addr != 5'd0) && (mem_rd_addr == ex_rs2_addr)) begin
-            fwd_b = FWD_MEM;
-        end else if (wb_rd_wren && (wb_rd_addr != 5'd0) && (wb_rd_addr == ex_rs2_addr)) begin
-            fwd_b = FWD_WB;
-        end else begin
-            fwd_b = FWD_NONE;
-        end
-    end
+    assign fwd_b_mem = mem_rd_wren && (mem_rd_addr != '0) &&
+                       (mem_rd_addr == ex_rs2_addr);
+    assign fwd_b_wb  = !fwd_b_mem && wb_rd_wren && (wb_rd_addr != '0) &&
+                       (wb_rd_addr == ex_rs2_addr);
 
 endmodule

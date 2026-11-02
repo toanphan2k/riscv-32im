@@ -50,17 +50,7 @@ module reg_id_ex (
     assign nop_ctrl = '0;
 
     always_ff @(posedge clk or negedge rst_n) begin
-        if (!rst_n) begin
-            ex_ctrl             <= nop_ctrl;
-            ex_pc               <= RST_32BIT_VECTOR;
-            ex_pc4              <= RST_32BIT_VECTOR;
-            ex_imm              <= RST_32BIT_VECTOR;
-            ex_rs1_data         <= RST_32BIT_VECTOR;
-            ex_rs2_data         <= RST_32BIT_VECTOR;
-            ex_rs1_addr         <= 5'b0;
-            ex_rs2_addr         <= 5'b0;
-            ex_rd_addr          <= 5'b0;
-        end else if (flush) begin
+        if (!rst_n || flush) begin
             ex_ctrl             <= nop_ctrl;
             ex_pc               <= RST_32BIT_VECTOR;
             ex_pc4              <= RST_32BIT_VECTOR;

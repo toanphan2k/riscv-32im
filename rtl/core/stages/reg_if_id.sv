@@ -35,11 +35,7 @@ module reg_if_id (
 );
 
     always_ff @(posedge clk or negedge rst_n) begin
-        if (!rst_n) begin
-            id_instr        <= NOP_INSTR;
-            id_pc4          <= RST_32BIT_VECTOR;
-            id_pc           <= RST_32BIT_VECTOR;
-        end else if (flush) begin
+        if (!rst_n || flush) begin
             id_instr        <= NOP_INSTR;
             id_pc4          <= RST_32BIT_VECTOR;
             id_pc           <= RST_32BIT_VECTOR;

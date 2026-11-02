@@ -2,6 +2,14 @@
 
 ## [0.5.4] - 2026-11-03
 
+### Changed
+- Optimized route from forward unit back to ex stage.
+- Reduce using MUX, as in FPPGA, MUX are located across CLBs, which cause routing delay
+- Using carry chain LUTs procude a better speed.
+- In ASIC, this may not produce any significant result.
+
+## [0.5.4] - 2026-11-03
+
 ### Added
 - Add verdic 32 bit multiplier with cycle for testing ppa and see if it can reduce critical path
 - Add constraints for evaluating PPA
