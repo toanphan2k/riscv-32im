@@ -1,8 +1,17 @@
 # Changelog
 
-## [0.5.3] - 2026-11-03
+## [0.5.4] - 2026-11-03
+
+### Added
+- Add verdic 32 bit multiplier with cycle for testing ppa and see if it can reduce critical path
+- Add constraints for evaluating PPA
 
 ### Changed
+- Move mem to a dedicated location $PROJECT_DIR/mem
+
+## [0.5.3] - 2026-11-03
+
+### Added
 - Add verdic 32 bit multiplier for testing ppa and see if it can reduce critical path
 
 ## [0.5.2] - 2026-11-02

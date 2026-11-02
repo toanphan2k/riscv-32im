@@ -33,10 +33,15 @@ module verdic_32bit_multiplier_seq(
     typedef enum logic [1:0] {IDLE, REDUCE, COMPLETE} mul_state_e;
     mul_state_e curr_state, next_state;
 
-    (* use_dsp = "yes" *) logic [31:0] product_ll_q, product_ll_d;
-    (* use_dsp = "yes" *) logic [31:0] product_lh_q, product_lh_d;
-    (* use_dsp = "yes" *) logic [31:0] product_hl_q, product_hl_d;
-    (* use_dsp = "yes" *) logic [31:0] product_hh_q, product_hh_d;
+    // (* use_dsp = "yes" *) logic [31:0] product_ll_q, product_ll_d;
+    // (* use_dsp = "yes" *) logic [31:0] product_lh_q, product_lh_d;
+    // (* use_dsp = "yes" *) logic [31:0] product_hl_q, product_hl_d;
+    // (* use_dsp = "yes" *) logic [31:0] product_hh_q, product_hh_d;
+    logic [31:0] product_ll_q, product_ll_d;
+    logic [31:0] product_lh_q, product_lh_d;
+    logic [31:0] product_hl_q, product_hl_d;
+    logic [31:0] product_hh_q, product_hh_d;
+
     logic [31:0] correction_a_q, correction_a_d;
     logic [31:0] correction_b_q, correction_b_d;
     logic [1:0] correction_count_q, correction_count_d;
@@ -58,7 +63,8 @@ module verdic_32bit_multiplier_seq(
     logic [63:0] csa_carry_3;
     logic [63:0] csa_sum_4;
     logic [63:0] csa_carry_4;
-    (* use_dsp = "no" *) logic [63:0] full_product;
+    // (* use_dsp = "no" *) logic [63:0] full_product;
+    logic [63:0] full_product;
 
     assign is_busy = (curr_state == REDUCE);
     assign done = (curr_state == COMPLETE);
