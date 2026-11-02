@@ -1,1 +1,0 @@
-set_max_delay 10.00 -datapath_only -from [all_inputs] -to [all_outputs]

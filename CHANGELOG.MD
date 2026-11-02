@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.5.5] - 2026-11-03
+
+### Removed
+- Removed unecessary constraints file from FPGA.
+
+### Added
+- Added sample constraints for asic PD
+
 ## [0.5.4] - 2026-11-03
 
 ### Added
