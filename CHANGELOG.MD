@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.5.5] - 2026-11-05
+
+### Added
+- Drawio and pipeline image of our riscv-32im pipeline
+
+### Changed
+- Change signal branch_target to branch_target_addr for clearer understand
+
 ## [0.5.4] - 2026-11-03
 
 ### Added
