@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.5.7] - 2026-11-06
+
+### Changed
+- Updated Markdown according to new document hierarchy structure.
+
 ## [0.5.6] - 2026-11-06
 
 ### Added
