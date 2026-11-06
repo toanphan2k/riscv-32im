@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.5.6] - 2026-11-06
+
+### Added
+- Added CLA 4 BIT overview image
+
+### Changed
+- Restructure doc directory
+
 ## [0.5.5] - 2026-11-05
 
 ### Added
