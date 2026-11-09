@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.5.8] - 2026-11-09
+
+### Changed
+- Add color stages for RISCV
+
+### Added
+- Added Digram for CLA 32 BIT
+
 ## [0.5.7] - 2026-11-06
 
 ### Changed
