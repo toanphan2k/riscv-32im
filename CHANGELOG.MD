@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.5.9] - 2026-11-10
+
+### Added
+- Added dedicated testbench for pipeline multiplier
+- Add testcases testing M-Unit in Stage Ex
+
+### Changed
+- Improve Vedic Multiplier Pipeline to 2 cycle latency, Removing Complete Stage
+
 ## [0.5.8] - 2026-11-09
 
 ### Changed

@@ -30,8 +30,9 @@ module verdic_32bit_multiplier_seq(
     output logic            is_busy,
     output logic            done
 );
-    typedef enum logic [1:0] {IDLE, REDUCE, COMPLETE} mul_state_e;
+    typedef enum logic {IDLE, REDUCE} mul_state_e;
     mul_state_e curr_state, next_state;
+    logic done_q;
 
     // (* use_dsp = "yes" *) logic [31:0] product_ll_q, product_ll_d;
     // (* use_dsp = "yes" *) logic [31:0] product_lh_q, product_lh_d;
@@ -67,7 +68,7 @@ module verdic_32bit_multiplier_seq(
     logic [63:0] full_product;
 
     assign is_busy = (curr_state == REDUCE);
-    assign done = (curr_state == COMPLETE);
+    assign done = done_q;
     assign negative_a = operand_a[31] &
                         ((m_opcode == M_MULH) | (m_opcode == M_MULHSU));
     assign negative_b = operand_b[31] & (m_opcode == M_MULH);
@@ -131,14 +132,13 @@ module verdic_32bit_multiplier_seq(
 
             REDUCE: begin
                 case (m_opcode_q)
-                    M_MUL:                    mul_result_d = full_product[31:0];
+                    M_MUL:                     mul_result_d = full_product[31:0];
                     M_MULH, M_MULHSU, M_MULHU: mul_result_d = full_product[63:32];
-                    default:                  mul_result_d = '0;
+                    default:                   mul_result_d = '0;
                 endcase
-                next_state = COMPLETE;
+                next_state = IDLE;
             end
 
-            COMPLETE: next_state = IDLE;
             default:  next_state = IDLE;
         endcase
     end
@@ -155,6 +155,7 @@ module verdic_32bit_multiplier_seq(
             correction_count_q <= '0;
             m_opcode_q         <= M_MUL;
             mul_result         <= '0;
+            done_q             <= 1'b0;
         end else begin
             curr_state         <= next_state;
             product_ll_q       <= product_ll_d;
@@ -166,6 +167,7 @@ module verdic_32bit_multiplier_seq(
             correction_count_q <= correction_count_d;
             m_opcode_q         <= m_opcode_d;
             mul_result         <= mul_result_d;
+            done_q             <= (curr_state == REDUCE);
         end
     end
 endmodule

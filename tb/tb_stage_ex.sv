@@ -98,8 +98,12 @@ module tb_stage_ex;
         input logic [XLEN-1:0] expected_branch_target
     );
         logic case_passed;
+        ctrl_signal_t expected_ctrl;
         integer cycles;
         begin
+            expected_ctrl = ctrl;
+            if (ctrl.en_m_ext)
+                ex_in_ctrl.en_m_ext = 1'b0;
             @(negedge clk);
             ex_in_ctrl   = ctrl;
             ex_pc        = pc;
@@ -114,18 +118,42 @@ module tb_stage_ex;
             fwd_wb_data  = wb_data;
             #1;
 
-            case_passed = (m_unit_busy === ctrl.en_m_ext);
+            case_passed = !ctrl.en_m_ext && (m_unit_busy === 1'b0);
+            if (ctrl.en_m_ext)
+                case_passed = 1'b1;
             cycles = 0;
             if (ctrl.en_m_ext) begin
-                while ((m_unit_busy !== 1'b0) && (cycles < XLEN + 4)) begin
+                while ((m_unit_busy !== 1'b1) && (cycles < XLEN + 4)) begin
                     @(posedge clk);
                     #1;
                     cycles++;
                 end
+
+                if (m_unit_busy !== 1'b1) begin
+                    case_passed = 1'b0;
+                end else begin
+                    @(posedge clk);
+                    #1;
+                    cycles++;
+                    case_passed = case_passed && (m_unit_busy === 1'b1);
+
+                    @(negedge clk);
+                    ex_in_ctrl.en_m_ext = 1'b0;
+                    expected_ctrl.en_m_ext = 1'b0;
+
+                    while ((m_unit_busy !== 1'b0) && (cycles < XLEN + 4)) begin
+                        @(posedge clk);
+                        #1;
+                        cycles++;
+                    end
+
+                    @(posedge clk);
+                    #1;
+                end
             end
 
             tests++;
-            case_passed = case_passed && (ex_out_ctrl === ctrl) &&
+            case_passed = case_passed && (ex_out_ctrl === expected_ctrl) &&
                           (ex_out_pc4 === pc4) &&
                           (ex_out_rd_addr === rd) &&
                           (ex_out_alu_result === expected_alu) &&
@@ -150,19 +178,13 @@ module tb_stage_ex;
                          branch_taken, expected_branch_taken,
                          branch_target_addr, expected_branch_target);
                 $display("       ctrl_match=%b pc4_match=%b rd_match=%b busy=%b",
-                         ex_out_ctrl === ctrl, ex_out_pc4 === pc4,
+                         ex_out_ctrl === expected_ctrl, ex_out_pc4 === pc4,
                          ex_out_rd_addr === rd, m_unit_busy);
                 if (check_m_result)
                     $display("       M result got=%h expected=%h",
                              ex_out_m_unit_result, expected_m_result);
             end
 
-            if (ctrl.en_m_ext) begin
-                @(negedge clk);
-                ex_in_ctrl.en_m_ext = 1'b0;
-                @(posedge clk);
-                #1;
-            end
         end
     endtask
 
@@ -333,11 +355,77 @@ module tb_stage_ex;
         init_ctrl();
         ex_in_ctrl.alu_opcode = ALU_ADD;
         ex_in_ctrl.en_m_ext = 1'b1;
+        ex_in_ctrl.m_ext_opcode = M_MULH;
+        run_case("MULH signed high product", ex_in_ctrl,
+                 32'h5000, 32'h5004, 32'h8000_0000, 32'h8000_0000,
+                 32'd0, 5'd4, FWD_NONE, FWD_NONE, 32'd0, 32'd0,
+                 32'd0, 1, 32'h4000_0000, 32'h8000_0000, 0,
+                 32'h5000);
+
+        init_ctrl();
+        ex_in_ctrl.alu_opcode = ALU_ADD;
+        ex_in_ctrl.en_m_ext = 1'b1;
+        ex_in_ctrl.m_ext_opcode = M_MULHSU;
+        run_case("MULHSU signed-by-unsigned high product", ex_in_ctrl,
+                 32'h5000, 32'h5004, 32'h8000_0000, 32'hFFFF_FFFF,
+                 32'd0, 5'd4, FWD_NONE, FWD_NONE, 32'd0, 32'd0,
+                 32'h7FFF_FFFF, 1, 32'h8000_0000, 32'hFFFF_FFFF, 0,
+                 32'h5000);
+
+        init_ctrl();
+        ex_in_ctrl.alu_opcode = ALU_ADD;
+        ex_in_ctrl.en_m_ext = 1'b1;
+        ex_in_ctrl.m_ext_opcode = M_MULHU;
+        run_case("MULHU unsigned high product", ex_in_ctrl,
+                 32'h5000, 32'h5004, 32'h8000_0000, 32'hFFFF_FFFF,
+                 32'd0, 5'd4, FWD_NONE, FWD_NONE, 32'd0, 32'd0,
+                 32'h7FFF_FFFF, 1, 32'h7FFF_FFFF, 32'hFFFF_FFFF, 0,
+                 32'h5000);
+
+        init_ctrl();
+        ex_in_ctrl.alu_opcode = ALU_ADD;
+        ex_in_ctrl.en_m_ext = 1'b1;
+        ex_in_ctrl.m_ext_opcode = M_MUL;
+        run_case("MUL result uses forwarded operands", ex_in_ctrl,
+                 32'h5000, 32'h5004, 32'd63, 32'd7, 32'd0, 5'd4,
+                 FWD_WB, FWD_NONE, 32'd0, 32'd9, 32'd16, 1,
+                 32'd63, 32'd7, 0, 32'h5000);
+
+        init_ctrl();
+        ex_in_ctrl.alu_opcode = ALU_ADD;
+        ex_in_ctrl.en_m_ext = 1'b1;
         ex_in_ctrl.m_ext_opcode = M_DIVU;
         run_case("DIVU result", ex_in_ctrl, 32'h5000, 32'h5004,
                  32'd100, 32'd9, 32'd0, 5'd4, FWD_NONE, FWD_NONE,
                  32'd0, 32'd0, 32'd109, 1, 32'd11, 32'd9, 0,
                  32'h5000);
+
+        init_ctrl();
+        ex_in_ctrl.alu_opcode = ALU_ADD;
+        ex_in_ctrl.en_m_ext = 1'b1;
+        ex_in_ctrl.m_ext_opcode = M_DIV;
+        run_case("DIV signed quotient", ex_in_ctrl, 32'h5000, 32'h5004,
+                 32'hFFFF_FFEC, 32'd3, 32'd0, 5'd4, FWD_NONE, FWD_NONE,
+                 32'd0, 32'd0, 32'hFFFF_FFEF, 1, 32'hFFFF_FFFA, 32'd3,
+                 0, 32'h5000);
+
+        init_ctrl();
+        ex_in_ctrl.alu_opcode = ALU_ADD;
+        ex_in_ctrl.en_m_ext = 1'b1;
+        ex_in_ctrl.m_ext_opcode = M_REM;
+        run_case("REM signed remainder", ex_in_ctrl, 32'h5000, 32'h5004,
+                 32'hFFFF_FFEC, 32'd3, 32'd0, 5'd4, FWD_NONE, FWD_NONE,
+                 32'd0, 32'd0, 32'hFFFF_FFEF, 1, 32'hFFFF_FFFE, 32'd3,
+                 0, 32'h5000);
+
+        init_ctrl();
+        ex_in_ctrl.alu_opcode = ALU_ADD;
+        ex_in_ctrl.en_m_ext = 1'b1;
+        ex_in_ctrl.m_ext_opcode = M_REMU;
+        run_case("REMU unsigned remainder", ex_in_ctrl, 32'h5000,
+                 32'h5004, 32'hFFFF_FFFF, 32'd2, 32'd0, 5'd4,
+                 FWD_NONE, FWD_NONE, 32'd0, 32'd0, 32'd1, 1, 32'd1,
+                 32'd2, 0, 32'h5000);
 
         $display("===== stage_ex SUMMARY =====");
         $display("Total: %0d | Passed: %0d | Failed: %0d",
