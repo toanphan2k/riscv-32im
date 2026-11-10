@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.5.11] - 2026-11-10
+
+### Changed
+- Updated Radix-4 Divider to be mathematically correct
+
 ## [0.5.10] - 2026-11-10
 
 ### Added
