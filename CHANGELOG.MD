@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.5.10] - 2026-11-10
+
+### Added
+- Document images for combinational logic vedic multipler and pipeline vedic multipler
+
 ## [0.5.9] - 2026-11-10
 
 ### Added
