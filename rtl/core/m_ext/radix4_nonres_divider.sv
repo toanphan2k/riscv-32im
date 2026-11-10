@@ -1,6 +1,6 @@
 //////////////////////////////////////////////////////////////////////////////////
 // Iterative radix-4 non-restoring divider for the RV32M extension.
-// Each cycle performs two radix-2 non-restoring steps.
+// Each cycle selects a signed quotient digit for two normalized dividend bits.
 //////////////////////////////////////////////////////////////////////////////////
 
 import rv32im_pkg::*;
@@ -16,56 +16,102 @@ module radix4_nonres_divider(
     output logic            is_busy,
     output logic            done
 );
-    localparam integer RADIX4_ITERATIONS = XLEN / 2;
-    localparam integer COUNT_WIDTH = (RADIX4_ITERATIONS > 1) ?
-                                     $clog2(RADIX4_ITERATIONS) : 1;
+    localparam integer MAX_RADIX4_ITERATIONS = XLEN;
+    localparam integer COUNT_WIDTH = (MAX_RADIX4_ITERATIONS > 1) ?
+                                     $clog2(MAX_RADIX4_ITERATIONS + 1) : 1;
+    localparam integer SHIFT_WIDTH = (XLEN > 1) ? $clog2(XLEN) : 1;
 
     typedef enum logic [1:0] {IDLE, ITERATE, COMPLETE} div_state_e;
     div_state_e curr_state, next_state;
 
-    logic [XLEN-1:0] quotient_q, quotient_d;
-    logic [XLEN-1:0] quotient_step1, quotient_step2;
-    logic signed [XLEN:0] remainder_q, remainder_d;
-    logic signed [XLEN:0] remainder_shift1, remainder_shift2;
-    logic signed [XLEN:0] remainder_step1, remainder_step2;
-    logic signed [XLEN:0] remainder_corrected;
-    logic signed [XLEN:0] divisor_extended;
+    logic [2*XLEN-1:0] dividend_q, dividend_d;
+    logic signed [XLEN+3:0] quotient_q, quotient_d;
+    logic signed [XLEN+3:0] quotient_step, quotient_corrected;
+    logic signed [XLEN+3:0] remainder_q, remainder_d;
+    logic signed [XLEN+3:0] remainder_trial, remainder_step;
+    logic signed [XLEN+3:0] remainder_corrected, remainder_unscaled;
+    logic signed [XLEN+3:0] twice_trial, divisor_extended;
+    logic signed [XLEN+3:0] divisor_x2, divisor_x3;
+    logic signed [2:0] quotient_digit;
+    logic signed [XLEN+3:0] quotient_digit_extended;
+    logic [XLEN-1:0] magnitude_a, magnitude_b, normalized_divisor;
+    logic [2*XLEN-1:0] normalized_dividend;
     logic [XLEN-1:0] divisor_q, divisor_d;
     logic [COUNT_WIDTH-1:0] iteration_q, iteration_d;
+    logic [COUNT_WIDTH-1:0] iteration_limit_q, iteration_limit_d;
+    logic [SHIFT_WIDTH-1:0] normalization_shift_q, normalization_shift_d;
     logic quotient_negative_q, quotient_negative_d;
     logic remainder_negative_q, remainder_negative_d;
     logic is_remainder_q, is_remainder_d;
     logic valid_opcode_q, valid_opcode_d;
     logic [XLEN-1:0] div_result_d;
     logic is_signed;
+    integer normalization_shift;
+    integer padding_bits;
+    integer required_iterations;
 
     assign is_signed = (m_opcode == M_DIV) || (m_opcode == M_REM);
     assign is_busy = (curr_state == ITERATE);
     assign done = (curr_state == COMPLETE);
 
     always_comb begin
-        divisor_extended = $signed({1'b0, divisor_q});
-        remainder_shift1 = {remainder_q[XLEN-1:0], quotient_q[XLEN-1]};
-        if (remainder_q[XLEN])
-            remainder_step1 = remainder_shift1 + divisor_extended;
-        else
-            remainder_step1 = remainder_shift1 - divisor_extended;
-        quotient_step1 = {quotient_q[XLEN-2:0], ~remainder_step1[XLEN]};
+        magnitude_a = (is_signed && operand_a[XLEN-1]) ?
+                      (~operand_a + 1'b1) : operand_a;
+        magnitude_b = (is_signed && operand_b[XLEN-1]) ?
+                      (~operand_b + 1'b1) : operand_b;
+        normalization_shift = 0;
+        for (integer bit_index = 0; bit_index < XLEN; bit_index = bit_index + 1) begin
+            if (magnitude_b[bit_index])
+                normalization_shift = XLEN - 1 - bit_index;
+        end
+        required_iterations = (XLEN + normalization_shift + 1) / 2;
+        padding_bits = (2 * required_iterations) -
+                       (XLEN + normalization_shift);
+        normalized_divisor = magnitude_b << normalization_shift;
+        normalized_dividend = {{XLEN{1'b0}}, magnitude_a} << (XLEN - padding_bits);
 
-        remainder_shift2 = {remainder_step1[XLEN-1:0], quotient_step1[XLEN-1]};
-        if (remainder_step1[XLEN])
-            remainder_step2 = remainder_shift2 + divisor_extended;
+        divisor_extended = $signed({4'b0000, divisor_q});
+        divisor_x2 = divisor_extended << 1;
+        divisor_x3 = divisor_x2 + divisor_extended;
+        remainder_trial = (remainder_q <<< 2) +
+                          $signed({{(XLEN+2){1'b0}}, dividend_q[2*XLEN-1:2*XLEN-2]});
+        twice_trial = remainder_trial <<< 1;
+
+        if (twice_trial >= divisor_x3)
+            quotient_digit = 3'sd2;
+        else if (twice_trial >= divisor_extended)
+            quotient_digit = 3'sd1;
+        else if (twice_trial <= -divisor_x3)
+            quotient_digit = -3'sd2;
+        else if (twice_trial <= -divisor_extended)
+            quotient_digit = -3'sd1;
         else
-            remainder_step2 = remainder_shift2 - divisor_extended;
-        quotient_step2 = {quotient_step1[XLEN-2:0], ~remainder_step2[XLEN]};
-        remainder_corrected = remainder_step2[XLEN] ?
-                              remainder_step2 + divisor_extended : remainder_step2;
+            quotient_digit = 3'sd0;
+
+        case (quotient_digit)
+            3'sd2:   remainder_step = remainder_trial - divisor_x2;
+            3'sd1:   remainder_step = remainder_trial - divisor_extended;
+            -3'sd1:  remainder_step = remainder_trial + divisor_extended;
+            -3'sd2:  remainder_step = remainder_trial + divisor_x2;
+            default: remainder_step = remainder_trial;
+        endcase
+
+        quotient_digit_extended = {{(XLEN+1){quotient_digit[2]}}, quotient_digit};
+        quotient_step = (quotient_q <<< 2) + quotient_digit_extended;
+        remainder_corrected = remainder_step[XLEN+3] ?
+                              remainder_step + divisor_extended : remainder_step;
+        quotient_corrected = remainder_step[XLEN+3] ?
+                             quotient_step - 1'b1 : quotient_step;
+        remainder_unscaled = remainder_corrected >>> normalization_shift_q;
 
         next_state = curr_state;
+        dividend_d = dividend_q;
         quotient_d = quotient_q;
         remainder_d = remainder_q;
         divisor_d = divisor_q;
         iteration_d = iteration_q;
+        iteration_limit_d = iteration_limit_q;
+        normalization_shift_d = normalization_shift_q;
         quotient_negative_d = quotient_negative_q;
         remainder_negative_d = remainder_negative_q;
         is_remainder_d = is_remainder_q;
@@ -75,12 +121,13 @@ module radix4_nonres_divider(
         case (curr_state)
             IDLE: begin
                 if (start) begin
-                    quotient_d = (is_signed && operand_a[XLEN-1]) ?
-                                 (~operand_a + 1'b1) : operand_a;
-                    divisor_d = (is_signed && operand_b[XLEN-1]) ?
-                                (~operand_b + 1'b1) : operand_b;
+                    dividend_d = normalized_dividend;
+                    divisor_d = normalized_divisor;
+                    quotient_d = '0;
                     remainder_d = '0;
                     iteration_d = '0;
+                    iteration_limit_d = required_iterations;
+                    normalization_shift_d = normalization_shift;
                     quotient_negative_d = is_signed &&
                                           (operand_a[XLEN-1] ^ operand_b[XLEN-1]);
                     remainder_negative_d = is_signed && operand_a[XLEN-1];
@@ -104,18 +151,20 @@ module radix4_nonres_divider(
             end
 
             ITERATE: begin
-                quotient_d = quotient_step2;
-                remainder_d = remainder_step2;
-                if (iteration_q == RADIX4_ITERATIONS-1) begin
+                dividend_d = dividend_q << 2;
+                quotient_d = quotient_step;
+                remainder_d = remainder_step;
+                if (iteration_q == iteration_limit_q - 1'b1) begin
                     if (!valid_opcode_q)
                         div_result_d = '0;
                     else if (is_remainder_q)
                         div_result_d = remainder_negative_q ?
-                            (~remainder_corrected[XLEN-1:0] + 1'b1) :
-                            remainder_corrected[XLEN-1:0];
+                            (~remainder_unscaled[XLEN-1:0] + 1'b1) :
+                            remainder_unscaled[XLEN-1:0];
                     else
                         div_result_d = quotient_negative_q ?
-                            (~quotient_step2 + 1'b1) : quotient_step2;
+                            (~quotient_corrected[XLEN-1:0] + 1'b1) :
+                            quotient_corrected[XLEN-1:0];
                     next_state = COMPLETE;
                 end else begin
                     iteration_d = iteration_q + 1'b1;
@@ -129,27 +178,33 @@ module radix4_nonres_divider(
 
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
-            curr_state           <= IDLE;
-            quotient_q           <= '0;
-            remainder_q          <= '0;
-            divisor_q            <= '0;
-            iteration_q          <= '0;
-            quotient_negative_q  <= 1'b0;
-            remainder_negative_q <= 1'b0;
-            is_remainder_q       <= 1'b0;
-            valid_opcode_q       <= 1'b0;
-            div_result           <= '0;
+            curr_state            <= IDLE;
+            dividend_q            <= '0;
+            quotient_q            <= '0;
+            remainder_q           <= '0;
+            divisor_q             <= '0;
+            iteration_q           <= '0;
+            iteration_limit_q     <= '0;
+            normalization_shift_q <= '0;
+            quotient_negative_q   <= 1'b0;
+            remainder_negative_q  <= 1'b0;
+            is_remainder_q        <= 1'b0;
+            valid_opcode_q        <= 1'b0;
+            div_result            <= '0;
         end else begin
-            curr_state           <= next_state;
-            quotient_q           <= quotient_d;
-            remainder_q          <= remainder_d;
-            divisor_q            <= divisor_d;
-            iteration_q          <= iteration_d;
-            quotient_negative_q  <= quotient_negative_d;
-            remainder_negative_q <= remainder_negative_d;
-            is_remainder_q       <= is_remainder_d;
-            valid_opcode_q       <= valid_opcode_d;
-            div_result           <= div_result_d;
+            curr_state            <= next_state;
+            dividend_q            <= dividend_d;
+            quotient_q            <= quotient_d;
+            remainder_q           <= remainder_d;
+            divisor_q             <= divisor_d;
+            iteration_q           <= iteration_d;
+            iteration_limit_q     <= iteration_limit_d;
+            normalization_shift_q <= normalization_shift_d;
+            quotient_negative_q   <= quotient_negative_d;
+            remainder_negative_q  <= remainder_negative_d;
+            is_remainder_q        <= is_remainder_d;
+            valid_opcode_q        <= valid_opcode_d;
+            div_result            <= div_result_d;
         end
     end
 endmodule
