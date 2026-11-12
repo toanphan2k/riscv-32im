@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.5.12] - 2026-11-12
+
+### Changed
+- Fail fast when !is_valid_opcode for all radix divider
+- Update testbench to verify radix divider
+
 ## [0.5.11] - 2026-11-10
 
 ### Changed

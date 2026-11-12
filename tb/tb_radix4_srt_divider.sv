@@ -2,7 +2,7 @@
 
 import rv32im_pkg::*;
 
-module tb_radix4_nonres_divider;
+module tb_radix4_srt_divider;
     logic clk = 1'b0;
     logic rst_n = 1'b0;
     logic start = 1'b0;
@@ -23,7 +23,7 @@ module tb_radix4_nonres_divider;
     localparam m_ext_opcode_e DIV_OPS [0:3] =
         '{M_DIV, M_DIVU, M_REM, M_REMU};
 
-    radix4_nonres_divider dut (
+    radix4_srt_divider dut (
         .clk(clk),
         .rst_n(rst_n),
         .start(start),
@@ -85,7 +85,9 @@ module tb_radix4_nonres_divider;
                 default: opcode_name = "UNKNOWN";
             endcase
             expected = reference_result(a, b, op);
-            expect_busy = (b != '0) &&
+            expect_busy = ((op == M_DIV) || (op == M_DIVU) ||
+                           (op == M_REM) || (op == M_REMU)) &&
+                          (b != '0) &&
                           !(((op == M_DIV) || (op == M_REM)) &&
                             (a == {1'b1, {(XLEN-1){1'b0}}}) &&
                             (b == {XLEN{1'b1}}));
@@ -154,7 +156,7 @@ module tb_radix4_nonres_divider;
         rst_n = 1'b1;
         repeat (2) @(negedge clk);
 
-        $display("===== radix4_nonres_divider tests =====");
+        $display("===== radix4_srt_divider tests =====");
         check_case("DIV positive", M_DIV, 32'd20, 32'd3);
         check_case("DIV negative dividend", M_DIV, 32'hFFFF_FFEC, 32'd3);
         check_case("DIV negative divisor", M_DIV, 32'd20, 32'hFFFF_FFFD);
@@ -180,6 +182,8 @@ module tb_radix4_nonres_divider;
         check_case("REMU by one", M_REMU, 32'hFEDC_BA98, 32'd1);
         check_case("REMU by zero", M_REMU, 32'h8765_4321, 32'd0);
         check_case("REMU zero dividend", M_REMU, 32'd0, 32'hFFFF_FFFF);
+        check_case("invalid opcode completes without iterating", M_MUL,
+                   32'h8765_4321, 32'd7);
 
         foreach (DIV_OPS[op_index]) begin
             repeat (50) begin
@@ -191,7 +195,7 @@ module tb_radix4_nonres_divider;
             end
         end
 
-        $display("===== radix4_nonres_divider SUMMARY =====");
+        $display("===== radix4_srt_divider SUMMARY =====");
         $display("Total: %0d | Passed: %0d | Failed: %0d",
                  tests_run, passed, failed);
         if (passed != 0) begin
@@ -199,7 +203,7 @@ module tb_radix4_nonres_divider;
                      min_latency, max_latency, 1.0 * total_latency / passed);
         end
         if (failed != 0)
-            $fatal(1, "radix4_nonres_divider: %0d test(s) failed", failed);
+            $fatal(1, "radix4_srt_divider: %0d test(s) failed", failed);
         $display("RESULT: ALL TESTS PASSED");
         $finish;
     end

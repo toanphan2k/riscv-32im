@@ -114,13 +114,16 @@ module radix2_nonres_divider(
                                      (m_opcode == M_REM)  ||
                                      (m_opcode == M_REMU);
 
-                    if (valid_opcode_d && (operand_b == '0)) begin
+                    if (!valid_opcode_d) begin
+                        div_result_d = '0;
+                        next_state = COMPLETE;
+                    end else if (operand_b == '0) begin
                         if (is_remainder_d)
                             div_result_d = operand_a;
                         else
                             div_result_d = {XLEN{1'b1}};
                         next_state = COMPLETE;
-                    end else if (valid_opcode_d && is_signed &&
+                    end else if (is_signed &&
                                  (operand_a == {1'b1, {(XLEN-1){1'b0}}}) &&
                                  (operand_b == {XLEN{1'b1}})) begin
                         if (is_remainder_d)
