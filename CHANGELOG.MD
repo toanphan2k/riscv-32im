@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.5.13] - 2026-11-12
+
+### Added
+- Update doc image for radix 4 restoring divider
+
 ## [0.5.12] - 2026-11-12
 
 ### Changed
