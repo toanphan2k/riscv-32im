@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.5.14] - 2026-11-13
+
+### Changed
+- Removed check opcode on ITERATE
+
 ## [0.5.13] - 2026-11-12
 
 ### Added
