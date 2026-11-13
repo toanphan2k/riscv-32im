@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.5.16] - 2026-11-14
+
+### Added
+- Update doc diagram for FPGA top, with led control demo
+
 ## [0.5.15] - 2026-11-13
 
 ### Added
