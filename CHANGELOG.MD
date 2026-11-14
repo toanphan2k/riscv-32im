@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.6.0] - 2026-11-14
+
+### Changed
+- Updated gitignore to ignore report
+
+### Added
+- Added benchmarks tcl flow
+- Added top sv files to test benchmark
+- Added dedicated contraints to test on need
+- Added stats to show the diff between module
+
 ## [0.5.17] - 2026-11-14
 
 ### Added
