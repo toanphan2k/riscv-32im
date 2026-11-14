@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.5.17] - 2026-11-14
+
+### Added
+- Added .gitignore to ignore png file
+
 ## [0.5.16] - 2026-11-14
 
 ### Added
