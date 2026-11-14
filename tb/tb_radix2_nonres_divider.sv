@@ -85,7 +85,9 @@ module tb_radix2_nonres_divider;
                 default: opcode_name = "UNKNOWN";
             endcase
             expected = reference_result(a, b, op);
-            expect_busy = (b != '0) &&
+            expect_busy = ((op == M_DIV) || (op == M_DIVU) ||
+                           (op == M_REM) || (op == M_REMU)) &&
+                          (b != '0) &&
                           !(((op == M_DIV) || (op == M_REM)) &&
                             (a == {1'b1, {(XLEN-1){1'b0}}}) &&
                             (b == {XLEN{1'b1}}));
@@ -180,6 +182,8 @@ module tb_radix2_nonres_divider;
         check_case("REMU by one", M_REMU, 32'hFEDC_BA98, 32'd1);
         check_case("REMU by zero", M_REMU, 32'h8765_4321, 32'd0);
         check_case("REMU zero dividend", M_REMU, 32'd0, 32'hFFFF_FFFF);
+        check_case("invalid opcode completes without iterating", M_MUL,
+                   32'h8765_4321, 32'd7);
 
         foreach (DIV_OPS[op_index]) begin
             repeat (50) begin

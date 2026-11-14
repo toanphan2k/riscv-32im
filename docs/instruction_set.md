@@ -68,6 +68,19 @@ All RV32I instructions are 32 bits wide. Register addresses `rd`, `rs1`, `rs2` a
 
 ---
 
+## Control-Flow Target and Condition Summary
+
+| Instruction | Target calculation | Condition |
+| :--- | :--- | :--- |
+| **BEQ** | `PC + imm` | `rs1 == rs2` |
+| **BNE** | `PC + imm` | `rs1 != rs2` |
+| **BLT** | `PC + imm` | signed `rs1 < rs2` |
+| **BGE** | `PC + imm` | signed `rs1 >= rs2` |
+| **JAL** | `PC + imm` | Always taken |
+| **JALR** | `(forwarded_rs1 + imm) & ~1` | Always taken |
+
+---
+
 ## 3. RV32M Standard Extension Table (Multiplication & Division)
 
 The M-extension instructions all share the R-type format with `opcode = 7'b0110011` and `funct7 = 7'b0000001`:

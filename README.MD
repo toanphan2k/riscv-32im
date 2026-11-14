@@ -20,7 +20,13 @@ The design targets the RV32I base integer ISA and includes the M extension for i
 - `rtl/core/` – processor core implementation and stage logic
 - `rtl/pkg/` – package definitions and shared data structures
 - `tb/` – basic testbenches for verification
-- `docs/` – ISA and microarchitecture references
+- `docs/` – ISA and microarchitecture references, document of algorightms
+
+## RISC-V-PIPELINE Overview
+
+Signals interconnect and pipeline overview:
+
+![RISC-V-PIPELINE Overview](docs/images/risc-v-architect/RISC-V-32IM-PIPELINE.svg)
 
 ## Supported Instruction Groups
 

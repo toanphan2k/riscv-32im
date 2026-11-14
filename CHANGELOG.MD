@@ -1,5 +1,95 @@
 # Changelog
 
+## [0.6.0] - 2026-11-14
+
+### Changed
+- Updated gitignore to ignore report
+
+### Added
+- Added benchmarks tcl flow
+- Added top sv files to test benchmark
+- Added dedicated contraints to test on need
+- Added stats to show the diff between module
+
+## [0.5.17] - 2026-11-14
+
+### Added
+- Added .gitignore to ignore png file
+
+## [0.5.16] - 2026-11-14
+
+### Added
+- Update doc diagram for FPGA top, with led control demo
+
+## [0.5.15] - 2026-11-13
+
+### Added
+- Update doc diagram for radix 2 restoring divider
+
+## [0.5.14] - 2026-11-13
+
+### Changed
+- Removed check opcode on ITERATE
+
+## [0.5.13] - 2026-11-12
+
+### Added
+- Update doc diagram for radix 4 restoring divider
+
+## [0.5.12] - 2026-11-12
+
+### Changed
+- Fail fast when !is_valid_opcode for all radix divider
+- Update testbench to verify radix divider
+
+## [0.5.11] - 2026-11-10
+
+### Changed
+- Updated Radix-4 Divider to be mathematically correct
+
+## [0.5.10] - 2026-11-10
+
+### Added
+- Document images for combinational logic vedic multipler and pipeline vedic multipler
+
+## [0.5.9] - 2026-11-10
+
+### Added
+- Added dedicated testbench for pipeline multiplier
+- Add testcases testing M-Unit in Stage Ex
+
+### Changed
+- Improve Vedic Multiplier Pipeline to 2 cycle latency, Removing Complete Stage
+
+## [0.5.8] - 2026-11-09
+
+### Changed
+- Add color stages for RISCV
+
+### Added
+- Added Digram for CLA 32 BIT
+
+## [0.5.7] - 2026-11-06
+
+### Changed
+- Updated Markdown according to new document hierarchy structure.
+
+## [0.5.6] - 2026-11-06
+
+### Added
+- Added CLA 4 BIT overview image
+
+### Changed
+- Restructure doc directory
+
+## [0.5.5] - 2026-11-05
+
+### Added
+- Drawio and pipeline image of our riscv-32im pipeline
+
+### Changed
+- Change signal branch_target to branch_target_addr for clearer understand
+
 ## [0.5.4] - 2026-11-03
 
 ### Changed

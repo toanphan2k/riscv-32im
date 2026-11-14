@@ -24,41 +24,46 @@ module radix4_res_divider(
     div_state_e curr_state, next_state;
 
     logic [XLEN-1:0] quotient_q, quotient_d;
-    logic [XLEN-1:0] quotient_step1, quotient_step2;
+    logic [XLEN-1:0] quotient_step;
     logic [XLEN:0] remainder_q, remainder_d;
-    logic [XLEN:0] remainder_trial1, remainder_trial2;
-    logic [XLEN:0] remainder_step1, remainder_step2;
+    logic [XLEN+1:0] remainder_trial, remainder_step;
+    logic [XLEN+1:0] divisor_extended, divisor_x2, divisor_x3;
+    logic [1:0] quotient_digit;
     logic [XLEN-1:0] divisor_q, divisor_d;
     logic [COUNT_WIDTH-1:0] iteration_q, iteration_d;
     logic quotient_negative_q, quotient_negative_d;
     logic remainder_negative_q, remainder_negative_d;
     logic is_remainder_q, is_remainder_d;
-    logic valid_opcode_q, valid_opcode_d;
+    logic valid_opcode;
     logic [XLEN-1:0] div_result_d;
     logic is_signed;
 
     assign is_signed = (m_opcode == M_DIV) || (m_opcode == M_REM);
+    assign valid_opcode = (m_opcode == M_DIV)  || (m_opcode == M_DIVU) ||
+                          (m_opcode == M_REM)  || (m_opcode == M_REMU);
     assign is_busy = (curr_state == ITERATE);
     assign done = (curr_state == COMPLETE);
 
     always_comb begin
-        remainder_trial1 = {remainder_q[XLEN-1:0], quotient_q[XLEN-1]};
-        if (remainder_trial1 >= {1'b0, divisor_q}) begin
-            remainder_step1 = remainder_trial1 - {1'b0, divisor_q};
-            quotient_step1 = {quotient_q[XLEN-2:0], 1'b1};
-        end else begin
-            remainder_step1 = remainder_trial1;
-            quotient_step1 = {quotient_q[XLEN-2:0], 1'b0};
-        end
+        divisor_extended = {{2{1'b0}}, divisor_q};
+        divisor_x2 = divisor_extended << 1;
+        divisor_x3 = divisor_x2 + divisor_extended;
+        remainder_trial = {remainder_q[XLEN-1:0], quotient_q[XLEN-1:XLEN-2]};
 
-        remainder_trial2 = {remainder_step1[XLEN-1:0], quotient_step1[XLEN-1]};
-        if (remainder_trial2 >= {1'b0, divisor_q}) begin
-            remainder_step2 = remainder_trial2 - {1'b0, divisor_q};
-            quotient_step2 = {quotient_step1[XLEN-2:0], 1'b1};
+        if (remainder_trial >= divisor_x3) begin
+            quotient_digit = 2'd3;
+            remainder_step = remainder_trial - divisor_x3;
+        end else if (remainder_trial >= divisor_x2) begin
+            quotient_digit = 2'd2;
+            remainder_step = remainder_trial - divisor_x2;
+        end else if (remainder_trial >= divisor_extended) begin
+            quotient_digit = 2'd1;
+            remainder_step = remainder_trial - divisor_extended;
         end else begin
-            remainder_step2 = remainder_trial2;
-            quotient_step2 = {quotient_step1[XLEN-2:0], 1'b0};
+            quotient_digit = 2'd0;
+            remainder_step = remainder_trial;
         end
+        quotient_step = (quotient_q << 2) | quotient_digit;
 
         next_state = curr_state;
         quotient_d = quotient_q;
@@ -68,7 +73,6 @@ module radix4_res_divider(
         quotient_negative_d = quotient_negative_q;
         remainder_negative_d = remainder_negative_q;
         is_remainder_d = is_remainder_q;
-        valid_opcode_d = valid_opcode_q;
         div_result_d = div_result;
 
         case (curr_state)
@@ -84,13 +88,14 @@ module radix4_res_divider(
                                           (operand_a[XLEN-1] ^ operand_b[XLEN-1]);
                     remainder_negative_d = is_signed && operand_a[XLEN-1];
                     is_remainder_d = (m_opcode == M_REM) || (m_opcode == M_REMU);
-                    valid_opcode_d = (m_opcode == M_DIV)  || (m_opcode == M_DIVU) ||
-                                     (m_opcode == M_REM)  || (m_opcode == M_REMU);
 
-                    if (valid_opcode_d && (operand_b == '0)) begin
+                    if (!valid_opcode) begin
+                        div_result_d = '0;
+                        next_state = COMPLETE;
+                    end else if (operand_b == '0) begin
                         div_result_d = is_remainder_d ? operand_a : {XLEN{1'b1}};
                         next_state = COMPLETE;
-                    end else if (valid_opcode_d && is_signed &&
+                    end else if (is_signed &&
                                  (operand_a == {1'b1, {(XLEN-1){1'b0}}}) &&
                                  (operand_b == {XLEN{1'b1}})) begin
                         div_result_d = is_remainder_d ? '0 :
@@ -103,18 +108,16 @@ module radix4_res_divider(
             end
 
             ITERATE: begin
-                quotient_d = quotient_step2;
-                remainder_d = remainder_step2;
+                quotient_d = quotient_step;
+                remainder_d = remainder_step[XLEN:0];
                 if (iteration_q == RADIX4_ITERATIONS-1) begin
-                    if (!valid_opcode_q)
-                        div_result_d = '0;
-                    else if (is_remainder_q)
+                    if (is_remainder_q)
                         div_result_d = remainder_negative_q ?
-                            (~remainder_step2[XLEN-1:0] + 1'b1) :
-                            remainder_step2[XLEN-1:0];
+                            (~remainder_step[XLEN-1:0] + 1'b1) :
+                            remainder_step[XLEN-1:0];
                     else
                         div_result_d = quotient_negative_q ?
-                            (~quotient_step2 + 1'b1) : quotient_step2;
+                            (~quotient_step + 1'b1) : quotient_step;
                     next_state = COMPLETE;
                 end else begin
                     iteration_d = iteration_q + 1'b1;
@@ -136,7 +139,6 @@ module radix4_res_divider(
             quotient_negative_q <= 1'b0;
             remainder_negative_q <= 1'b0;
             is_remainder_q      <= 1'b0;
-            valid_opcode_q      <= 1'b0;
             div_result          <= '0;
         end else begin
             curr_state          <= next_state;
@@ -147,7 +149,6 @@ module radix4_res_divider(
             quotient_negative_q <= quotient_negative_d;
             remainder_negative_q <= remainder_negative_d;
             is_remainder_q      <= is_remainder_d;
-            valid_opcode_q      <= valid_opcode_d;
             div_result          <= div_result_d;
         end
     end

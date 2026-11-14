@@ -55,11 +55,14 @@ module radix2_nonres_divider(
     logic remainder_negative_d;
     logic is_remainder_q;
     logic is_remainder_d;
-    logic valid_opcode_q;
-    logic valid_opcode_d;
+    logic valid_opcode;
     logic [XLEN-1:0] div_result_d;
 
     assign is_signed = (m_opcode == M_DIV) || (m_opcode == M_REM);
+    assign valid_opcode = (m_opcode == M_DIV)  ||
+                          (m_opcode == M_DIVU) ||
+                          (m_opcode == M_REM)  ||
+                          (m_opcode == M_REMU);
     assign is_busy = (curr_state == ITERATE);
     assign done = (curr_state == COMPLETE);
 
@@ -86,7 +89,6 @@ module radix2_nonres_divider(
         quotient_negative_d = quotient_negative_q;
         remainder_negative_d = remainder_negative_q;
         is_remainder_d = is_remainder_q;
-        valid_opcode_d = valid_opcode_q;
         div_result_d = div_result;
 
         case (curr_state)
@@ -109,18 +111,17 @@ module radix2_nonres_divider(
                     remainder_negative_d = is_signed && operand_a[XLEN-1];
                     is_remainder_d = (m_opcode == M_REM) ||
                                      (m_opcode == M_REMU);
-                    valid_opcode_d = (m_opcode == M_DIV)  ||
-                                     (m_opcode == M_DIVU) ||
-                                     (m_opcode == M_REM)  ||
-                                     (m_opcode == M_REMU);
 
-                    if (valid_opcode_d && (operand_b == '0)) begin
+                    if (!valid_opcode) begin
+                        div_result_d = '0;
+                        next_state = COMPLETE;
+                    end else if (operand_b == '0) begin
                         if (is_remainder_d)
                             div_result_d = operand_a;
                         else
                             div_result_d = {XLEN{1'b1}};
                         next_state = COMPLETE;
-                    end else if (valid_opcode_d && is_signed &&
+                    end else if (is_signed &&
                                  (operand_a == {1'b1, {(XLEN-1){1'b0}}}) &&
                                  (operand_b == {XLEN{1'b1}})) begin
                         if (is_remainder_d)
@@ -139,9 +140,7 @@ module radix2_nonres_divider(
                 remainder_d = remainder_next;
 
                 if (iteration_q == XLEN-1) begin
-                    if (!valid_opcode_q) begin
-                        div_result_d = '0;
-                    end else if (is_remainder_q) begin
+                    if (is_remainder_q) begin
                         if (remainder_negative_q)
                             div_result_d = (~remainder_corrected[XLEN-1:0]) + 1'b1;
                         else
@@ -172,7 +171,6 @@ module radix2_nonres_divider(
             quotient_negative_q     <= 1'b0;
             remainder_negative_q    <= 1'b0;
             is_remainder_q          <= 1'b0;
-            valid_opcode_q          <= 1'b0;
             div_result              <= '0;
         end else begin
             curr_state              <= next_state;
@@ -183,7 +181,6 @@ module radix2_nonres_divider(
             quotient_negative_q     <= quotient_negative_d;
             remainder_negative_q    <= remainder_negative_d;
             is_remainder_q          <= is_remainder_d;
-            valid_opcode_q          <= valid_opcode_d;
             div_result              <= div_result_d;
         end
     end

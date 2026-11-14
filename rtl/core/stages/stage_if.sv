@@ -25,7 +25,7 @@ module stage_if (
 
     input  logic pc_en,
     input  logic pc_src_sel,
-    input  logic [XLEN-1:0] branch_target,
+    input  logic [XLEN-1:0] branch_target_addr,
 
     output logic [XLEN-1:0] pc,
     output logic [XLEN-1:0] pc4,
@@ -41,7 +41,7 @@ module stage_if (
     logic        advance;
 
     assign pc4 = pc_q + 32'd4;
-    assign next_pc = pc_src_sel ? branch_target : pc4;
+    assign next_pc = pc_src_sel ? branch_target_addr : pc4;
 
     assign advance = is_fetch_valid_q && pc_en;
 

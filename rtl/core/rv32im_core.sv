@@ -135,7 +135,7 @@ module rv32im_core #(
         .pc_src_sel(branch_taken),
         .pc(if_pc),
         .pc4(if_pc4),
-        .branch_target(branch_target_addr),
+        .branch_target_addr(branch_target_addr),
         .is_fetch_valid(is_fetch_valid),
         .imem_addr(imem_addr),
         .imem_read_req(imem_req)

@@ -96,7 +96,7 @@ module radix4_divider_comb (
     // 4. Radix-4 restoring divider
     //    No / or % operators are used
     // --------------------------------------------------
-    radix4_divider_comb u_radix4_divider (
+    radix4_divider_comb_core u_radix4_divider (
         .dividend  (dividend_abs),
         .divisor   (divisor_abs),
         .quotient  (quotient_unsigned),
@@ -172,4 +172,53 @@ module radix4_divider_comb (
         end
     end
 
+endmodule
+
+module radix4_divider_comb_core (
+    input  logic [XLEN-1:0] dividend,
+    input  logic [XLEN-1:0] divisor,
+    output logic [XLEN-1:0] quotient,
+    output logic [XLEN-1:0] remainder
+);
+    logic [XLEN+1:0] divisor_extended;
+    logic [XLEN+1:0] divisor_x2;
+    logic [XLEN+1:0] divisor_x3;
+    logic [XLEN+1:0] remainder_work;
+    logic [XLEN+1:0] trial;
+    logic [XLEN-1:0] quotient_work;
+    logic [1:0] quotient_digit;
+    integer digit_index;
+
+    always_comb begin
+        divisor_extended = {{2{1'b0}}, divisor};
+        divisor_x2 = divisor_extended << 1;
+        divisor_x3 = divisor_x2 + divisor_extended;
+        remainder_work = '0;
+        trial = '0;
+        quotient_work = '0;
+        quotient_digit = '0;
+
+        for (digit_index = (XLEN / 2) - 1; digit_index >= 0; digit_index = digit_index - 1) begin
+            trial = {remainder_work[XLEN-1:0], dividend[(digit_index * 2) +: 2]};
+
+            if (trial >= divisor_x3) begin
+                quotient_digit = 2'd3;
+                remainder_work = trial - divisor_x3;
+            end else if (trial >= divisor_x2) begin
+                quotient_digit = 2'd2;
+                remainder_work = trial - divisor_x2;
+            end else if (trial >= divisor_extended) begin
+                quotient_digit = 2'd1;
+                remainder_work = trial - divisor_extended;
+            end else begin
+                quotient_digit = 2'd0;
+                remainder_work = trial;
+            end
+
+            quotient_work = (quotient_work << 2) | {{(XLEN-2){1'b0}}, quotient_digit};
+        end
+
+        quotient = quotient_work;
+        remainder = remainder_work[XLEN-1:0];
+    end
 endmodule
